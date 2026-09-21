@@ -69,20 +69,44 @@ class SpaceApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_owner_can_retrieve_and_reactivate_inactive_space(self):
-        self.space.is_active = False
-        self.space.save(update_fields=["is_active"])
+    def test_owner_can_create_pause_view_and_reactivate_space(self):
         self.client.force_authenticate(self.owner)
+        create_response = self.client.post("/api/spaces/", {
+            "title": "Nova garagem",
+            "description": "Garagem para locação",
+            "price": "250.00",
+            "billing_period": Space.BillingPeriod.MONTH,
+            "state": "SP",
+            "city": "São Paulo",
+            "neighborhood": "Tatuapé",
+            "address_line": "Rua Nova, 20",
+        }, format="json")
+        self.assertEqual(create_response.status_code, 201)
+        space_id = create_response.data["id"]
+        detail_url = f"/api/spaces/{space_id}/"
 
-        detail_response = self.client.get(f"/api/spaces/{self.space.id}/")
+        pause_response = self.client.patch(detail_url, {"is_active": False}, format="json")
+        self.assertEqual(pause_response.status_code, 200)
+        self.assertFalse(pause_response.data["is_active"])
+
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertTrue(detail_response.data["is_owner"])
+        mine_response = self.client.get("/api/spaces/mine/")
+        self.assertIn(space_id, [space["id"] for space in mine_response.data["results"]])
+
+        self.client.force_authenticate(user=None)
+        self.assertEqual(self.client.get(detail_url).status_code, 404)
+        self.client.force_authenticate(self.other_user)
+        self.assertEqual(self.client.get(detail_url).status_code, 404)
+
+        self.client.force_authenticate(self.owner)
         reactivate_response = self.client.patch(
-            f"/api/spaces/{self.space.id}/",
+            detail_url,
             {"is_active": True},
             format="json",
         )
 
-        self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(reactivate_response.status_code, 200)
         self.assertTrue(reactivate_response.data["is_active"])
-        self.space.refresh_from_db()
-        self.assertTrue(self.space.is_active)
+        self.assertTrue(Space.objects.get(pk=space_id).is_active)
