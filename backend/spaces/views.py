@@ -19,18 +19,27 @@ class SpaceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Space.objects.select_related("owner").all()
-        if self.action not in {"mine"}:
+        user = self.request.user
+        owner_detail_actions = {"retrieve", "update", "partial_update", "destroy"}
+
+        if self.action == "mine":
+            qs = qs.filter(owner=user)
+        elif self.action in owner_detail_actions and user.is_authenticated:
+            qs = qs.filter(Q(is_active=True) | Q(owner=user))
+        else:
             qs = qs.filter(is_active=True)
 
-        min_price = self.request.query_params.get("min_price")
-        max_price = self.request.query_params.get("max_price")
-        location = self.request.query_params.get("location")
-        if min_price:
-            qs = qs.filter(price__gte=min_price)
-        if max_price:
-            qs = qs.filter(price__lte=max_price)
-        if location:
-            qs = qs.filter(Q(city__icontains=location) | Q(neighborhood__icontains=location))
+        if self.action == "list":
+            min_price = self.request.query_params.get("min_price")
+            max_price = self.request.query_params.get("max_price")
+            location = self.request.query_params.get("location")
+            if min_price:
+                qs = qs.filter(price__gte=min_price)
+            if max_price:
+                qs = qs.filter(price__lte=max_price)
+            if location:
+                qs = qs.filter(Q(city__icontains=location) | Q(neighborhood__icontains=location))
+
         return qs
 
     def get_permissions(self):

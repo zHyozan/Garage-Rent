@@ -59,8 +59,9 @@ export default function SpaceDetailPage() {
               <h1>{space.title}</h1>
               <p className="muted">{space.public_location}</p>
             </div>
-            <button className="button button-secondary" onClick={toggleFavorite}>{space.is_favorite ? '★ Favoritado' : '☆ Favoritar'}</button>
+            {!space.is_owner && <button className="button button-secondary" onClick={toggleFavorite}>{space.is_favorite ? '★ Favoritado' : '☆ Favoritar'}</button>}
           </div>
+          {space.is_owner && !space.is_active && <div className="alert alert-info">Este anúncio está pausado e não aparece para outros usuários.</div>}
           <p className="detail-description">{space.description}</p>
 
           <h2>Comodidades</h2>
@@ -91,9 +92,10 @@ export default function SpaceDetailPage() {
             <span>/{labels[space.billing_period]}</span>
           </div>
           {space.is_owner ? (
-            <div>
+            <div className="stack-form">
               <p>Este anúncio é seu.</p>
-              <Link className="button button-primary button-full" to="/meus-anuncios">Gerenciar anúncio</Link>
+              <Link className="button button-primary button-full" to={`/meus-anuncios/${space.id}/editar`}>Editar anúncio</Link>
+              <Link className="button button-secondary button-full" to="/meus-anuncios">Meus anúncios</Link>
             </div>
           ) : (
             <form onSubmit={book} className="stack-form">

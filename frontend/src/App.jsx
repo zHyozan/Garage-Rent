@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import CreateSpacePage from './pages/CreateSpacePage'
+import EditSpacePage from './pages/EditSpacePage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import MySpacesPage from './pages/MySpacesPage'
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/espacos/:id" element={<SpaceDetailPage />} />
         <Route path="/anunciar" element={<ProtectedRoute><CreateSpacePage /></ProtectedRoute>} />
         <Route path="/meus-anuncios" element={<ProtectedRoute><MySpacesPage /></ProtectedRoute>} />
+        <Route path="/meus-anuncios/:id/editar" element={<ProtectedRoute><EditSpacePage /></ProtectedRoute>} />
         <Route path="/reservas" element={<ProtectedRoute><ReservationsPage /></ProtectedRoute>} />
         <Route path="/favoritos" element={<ProtectedRoute><HomePage favoritesOnly /></ProtectedRoute>} />
       </Routes>
