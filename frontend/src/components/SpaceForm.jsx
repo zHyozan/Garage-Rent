@@ -6,10 +6,10 @@ const empty = {
   security_camera: false, access_24h: false, lighting: false, electricity: false, restroom: false,
 }
 
-export function buildSpaceFormData(form, image) {
+export function buildSpaceFormData(form, images) {
   const payload = new FormData()
   Object.entries(form).forEach(([key, value]) => payload.append(key, value ?? ''))
-  if (image) payload.append('cover_image', image)
+  images.forEach((image) => payload.append('images_upload', image))
   return payload
 }
 
@@ -17,13 +17,14 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
   const [form, setForm] = useState(() => Object.fromEntries(
     Object.entries(empty).map(([key, value]) => [key, initialValues[key] ?? value])
   ))
-  const [image, setImage] = useState(null)
-  const [preview, setPreview] = useState('')
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
+  const [images, setImages] = useState([])
+  const [previews, setPreviews] = useState([])
+  const [imageError, setImageError] = useState('')
+  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews])
   const set = (field, value) => setForm((old) => ({ ...old, [field]: value }))
   const submit = (event) => {
     event.preventDefault()
-    if (!loading) onSubmit(form, image)
+    if (!loading && !imageError) onSubmit(form, images)
   }
   const checkboxes = [
     ['covered', 'Coberta'], ['electric_gate', 'Portão elétrico'], ['security_camera', 'Câmeras'],
@@ -66,13 +67,26 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
           ))}
         </div>
 
-        <h2>Foto de capa</h2>
-        <input type="file" accept="image/*" onChange={(e) => {
-          const file = e.target.files?.[0]
-          setImage(file || null)
-          setPreview(file ? URL.createObjectURL(file) : '')
+        <h2>Fotos do anúncio</h2>
+        <p className="muted">Selecione até 8 imagens. A primeira será a capa do anúncio.</p>
+        <input type="file" accept="image/*" multiple onChange={(e) => {
+          const selected = Array.from(e.target.files || [])
+          const existingCount = initialValues.images?.length || 0
+          if (existingCount + selected.length > 8) {
+            setImageError(`Você pode adicionar no máximo ${8 - existingCount} imagem(ns) a este anúncio.`)
+            setImages([])
+            setPreviews([])
+          } else {
+            setImageError('')
+            setImages(selected)
+            setPreviews(selected.map((file) => URL.createObjectURL(file)))
+          }
         }} />
-        {(preview || initialValues.cover_image) && <img className="image-preview" src={preview || initialValues.cover_image} alt="Pré-visualização" />}
+        {imageError && <div className="alert alert-error">{imageError}</div>}
+        <div className="image-preview-grid">
+          {(initialValues.images || (initialValues.cover_image ? [{ url: initialValues.cover_image }] : [])).map((image, index) => <img key={image.id ?? index} className="image-preview" src={image.url} alt={`Foto atual ${index + 1}`} />)}
+          {previews.map((url, index) => <img key={url} className="image-preview" src={url} alt={`Nova foto ${index + 1}`} />)}
+        </div>
 
         {error && <div className="alert alert-error">{error}</div>}
         <button disabled={loading} className="button button-primary">{loading ? loadingLabel : submitLabel}</button>

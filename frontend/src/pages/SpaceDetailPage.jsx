@@ -12,6 +12,7 @@ export default function SpaceDetailPage() {
   const [space, setSpace] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [photoIndex, setPhotoIndex] = useState(0)
   const [reservation, setReservation] = useState({ start_at: '', end_at: '' })
 
   const load = async () => {
@@ -23,7 +24,7 @@ export default function SpaceDetailPage() {
     }
   }
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => { setPhotoIndex(0); load() }, [id])
 
   const toggleFavorite = async () => {
     if (!user) return navigate('/entrar', { state: { from: `/espacos/${id}` } })
@@ -47,12 +48,27 @@ export default function SpaceDetailPage() {
 
   if (loading) return <div className="page-center">Carregando...</div>
   if (!space) return <div className="page-center">Anúncio não encontrado.</div>
+  const photos = space.images?.length ? space.images : (space.cover_image ? [{ url: space.cover_image }] : [])
+  const activePhoto = photos[photoIndex] || photos[0]
 
   return (
     <main className="container section">
       <div className="detail-grid">
         <section>
-          {space.cover_image ? <img className="detail-image" src={space.cover_image} alt={space.title} /> : <div className="detail-image placeholder">Garage Rent</div>}
+          {activePhoto ? (
+            <div className="photo-gallery">
+              <div className="photo-stage">
+                <img className="detail-image" src={activePhoto.url} alt={`${space.title}, foto ${photoIndex + 1} de ${photos.length}`} />
+                {photos.length > 1 && <>
+                  <button type="button" className="photo-arrow photo-prev" aria-label="Foto anterior" onClick={() => setPhotoIndex((photoIndex - 1 + photos.length) % photos.length)}>‹</button>
+                  <button type="button" className="photo-arrow photo-next" aria-label="Próxima foto" onClick={() => setPhotoIndex((photoIndex + 1) % photos.length)}>›</button>
+                </>}
+              </div>
+              {photos.length > 1 && <div className="photo-thumbnails" aria-label="Fotos do anúncio">
+                {photos.map((photo, index) => <button type="button" key={photo.id ?? index} className={index === photoIndex ? 'photo-thumbnail active' : 'photo-thumbnail'} aria-label={`Mostrar foto ${index + 1}`} aria-current={index === photoIndex ? 'true' : undefined} onClick={() => setPhotoIndex(index)}><img src={photo.url} alt="" /></button>)}
+              </div>}
+            </div>
+          ) : <div className="detail-image placeholder">Garage Rent</div>}
           <div className="detail-title-row">
             <div>
               <span className="eyebrow">{labels[space.space_type]}</span>

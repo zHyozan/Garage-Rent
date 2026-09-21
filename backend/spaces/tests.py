@@ -1,4 +1,10 @@
+from io import BytesIO
+from tempfile import TemporaryDirectory
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
+from PIL import Image
 from rest_framework.test import APITestCase
 
 from .models import Space
@@ -7,6 +13,11 @@ User = get_user_model()
 
 
 class SpaceApiTests(APITestCase):
+    def image_file(self, name):
+        buffer = BytesIO()
+        Image.new("RGB", (2, 2), "blue").save(buffer, format="PNG")
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+
     def setUp(self):
         self.owner = User.objects.create_user(username="owner", password="strong-pass-123")
         self.other_user = User.objects.create_user(username="other", password="strong-pass-123")
@@ -110,3 +121,27 @@ class SpaceApiTests(APITestCase):
         self.assertEqual(reactivate_response.status_code, 200)
         self.assertTrue(reactivate_response.data["is_active"])
         self.assertTrue(Space.objects.get(pk=space_id).is_active)
+
+    def test_image_limit_and_gallery_response(self):
+        self.client.force_authenticate(self.owner)
+        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.post("/api/spaces/", {
+                "title": "Garagem com galeria",
+                "description": "Oito fotos da garagem",
+                "price": "250.00",
+                "billing_period": Space.BillingPeriod.MONTH,
+                "state": "SP",
+                "city": "São Paulo",
+                "neighborhood": "Tatuapé",
+                "address_line": "Rua Nova, 20",
+                "images_upload": [self.image_file(f"photo-{index}.png") for index in range(8)],
+            }, format="multipart")
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(len(response.data["images"]), 8)
+            self.assertEqual(response.data["cover_image"], response.data["images"][0]["url"])
+
+            rejected = self.client.patch(f"/api/spaces/{response.data['id']}/", {
+                "images_upload": [self.image_file("extra.png")],
+            }, format="multipart")
+            self.assertEqual(rejected.status_code, 400)
+            self.assertEqual(Space.objects.get(pk=response.data["id"]).images.count(), 8)

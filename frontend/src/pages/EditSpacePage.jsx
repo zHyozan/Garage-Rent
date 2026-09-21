@@ -31,11 +31,11 @@ export default function EditSpacePage() {
     return () => { active = false }
   }, [id])
 
-  const submit = async (form, image) => {
+  const submit = async (form, images) => {
     setSaving(true)
     setError('')
     try {
-      await api.patch(`/spaces/${id}/`, buildSpaceFormData(form, image))
+      await api.patch(`/spaces/${id}/`, buildSpaceFormData(form, images))
       navigate(`/espacos/${id}`)
     } catch (err) {
       setError(err.response?.data ? JSON.stringify(err.response.data) : 'Não foi possível salvar o anúncio.')

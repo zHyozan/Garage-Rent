@@ -21,12 +21,13 @@ class ReservationSerializer(serializers.ModelSerializer):
         return {"id": obj.renter_id, "username": obj.renter.username}
 
     def get_space_summary(self, obj):
+        first_image = obj.space.images.first()
         return {
             "id": obj.space_id,
             "title": obj.space.title,
             "public_location": obj.space.public_location,
             "owner_id": obj.space.owner_id,
-            "cover_image": obj.space.cover_image.url if obj.space.cover_image else None,
+            "cover_image": obj.space.cover_image.url if obj.space.cover_image else (first_image.image.url if first_image else None),
         }
 
     def validate(self, attrs):

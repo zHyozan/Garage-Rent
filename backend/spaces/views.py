@@ -18,7 +18,7 @@ class SpaceViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        qs = Space.objects.select_related("owner").all()
+        qs = Space.objects.select_related("owner").prefetch_related("images")
         user = self.request.user
         owner_detail_actions = {"retrieve", "update", "partial_update", "destroy"}
 
@@ -54,14 +54,14 @@ class SpaceViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def mine(self, request):
-        queryset = Space.objects.filter(owner=request.user).select_related("owner")
+        queryset = Space.objects.filter(owner=request.user).select_related("owner").prefetch_related("images")
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page if page is not None else queryset, many=True)
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def favorites(self, request):
-        queryset = Space.objects.filter(favorites__user=request.user, is_active=True).select_related("owner")
+        queryset = Space.objects.filter(favorites__user=request.user, is_active=True).select_related("owner").prefetch_related("images")
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page if page is not None else queryset, many=True)
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)

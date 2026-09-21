@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Favorite, Space
+from .models import Favorite, Space, SpaceImage
 
 
 class SpaceSerializer(serializers.ModelSerializer):
@@ -8,6 +8,9 @@ class SpaceSerializer(serializers.ModelSerializer):
     exact_address = serializers.SerializerMethodField()
     is_favorite = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
+    cover_image = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
+    images_upload = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
 
     class Meta:
         model = Space
@@ -16,7 +19,7 @@ class SpaceSerializer(serializers.ModelSerializer):
             "state", "city", "neighborhood", "postal_code", "address_line", "public_location",
             "exact_address", "length_m", "width_m", "height_m", "covered", "electric_gate",
             "security_camera", "access_24h", "lighting", "electricity", "restroom", "cover_image",
-            "is_active", "is_favorite", "is_owner", "created_at", "updated_at",
+            "images", "images_upload", "is_active", "is_favorite", "is_owner", "created_at", "updated_at",
         ]
         read_only_fields = ["owner", "created_at", "updated_at"]
         extra_kwargs = {
@@ -26,6 +29,40 @@ class SpaceSerializer(serializers.ModelSerializer):
 
     def get_owner(self, obj):
         return {"id": obj.owner_id, "username": obj.owner.username}
+
+    def get_images(self, obj):
+        request = self.context.get("request")
+        images = [{"id": image.id, "url": request.build_absolute_uri(image.image.url) if request else image.image.url} for image in obj.images.all()]
+        if obj.cover_image:
+            legacy = request.build_absolute_uri(obj.cover_image.url) if request else obj.cover_image.url
+            images.insert(0, {"id": None, "url": legacy})
+        return images
+
+    def get_cover_image(self, obj):
+        images = self.get_images(obj)
+        return images[0]["url"] if images else None
+
+    def validate(self, attrs):
+        uploads = attrs.get("images_upload", [])
+        if self.instance:
+            existing = self.instance.images.count() + bool(self.instance.cover_image)
+        else:
+            existing = 0
+        if existing + len(uploads) > 8:
+            raise serializers.ValidationError({"images_upload": "O anúncio pode ter no máximo 8 imagens."})
+        return attrs
+
+    def create(self, validated_data):
+        uploads = validated_data.pop("images_upload", [])
+        space = super().create(validated_data)
+        SpaceImage.objects.bulk_create([SpaceImage(space=space, image=image) for image in uploads])
+        return space
+
+    def update(self, instance, validated_data):
+        uploads = validated_data.pop("images_upload", [])
+        space = super().update(instance, validated_data)
+        SpaceImage.objects.bulk_create([SpaceImage(space=space, image=image) for image in uploads])
+        return space
 
     def get_is_owner(self, obj):
         request = self.context.get("request")

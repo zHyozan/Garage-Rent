@@ -59,6 +59,15 @@ class Space(models.Model):
         return f"{self.neighborhood}, {self.city} - {self.state.upper()}"
 
 
+class SpaceImage(models.Model):
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="spaces/%Y/%m/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+
 class Favorite(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorite_spaces")
     space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="favorites")
