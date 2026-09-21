@@ -33,6 +33,7 @@ export default function LoginPage() {
         <label>Senha<input required type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
         {error && <div className="alert alert-error">{error}</div>}
         <button disabled={loading} className="button button-primary button-full">{loading ? 'Entrando...' : 'Entrar'}</button>
+        <Link to="/esqueci-senha">Esqueceu a senha?</Link>
         <p>Não tem conta? <Link to="/cadastro">Cadastre-se</Link></p>
       </form>
     </main>

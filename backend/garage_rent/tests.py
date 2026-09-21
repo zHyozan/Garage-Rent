@@ -1,4 +1,8 @@
+from urllib.parse import parse_qs, urlparse
+
 from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 
@@ -48,3 +52,29 @@ class EmailAuthenticationTests(APITestCase):
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("email", response.data)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_password_reset_uses_email_link_and_invalidates_old_password(self):
+        user = get_user_model().objects.create_user(
+            username="owner", email="owner@example.com", password="SenhaAntiga1!"
+        )
+        request = self.client.post("/api/auth/password-reset/", {"email": user.email}, format="json")
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        link = next(line for line in mail.outbox[0].body.splitlines() if line.startswith("http"))
+        params = parse_qs(urlparse(link).query)
+        reset = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": params["uid"][0], "token": params["token"][0],
+            "password": "SenhaNova2!", "re_password": "SenhaNova2!",
+        }, format="json")
+        self.assertEqual(reset.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("SenhaNova2!"))
+        self.assertFalse(user.check_password("SenhaAntiga1!"))
+        self.assertEqual(self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": params["uid"][0], "token": params["token"][0],
+            "password": "OutraSenha3!", "re_password": "OutraSenha3!",
+        }, format="json").status_code, 400)
+        unknown = self.client.post("/api/auth/password-reset/", {"email": "missing@example.com"}, format="json")
+        self.assertEqual(unknown.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)

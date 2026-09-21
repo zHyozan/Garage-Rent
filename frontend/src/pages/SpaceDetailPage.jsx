@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
+import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import { useAuth } from '../context/AuthContext'
 
 const labels = { garage: 'Garagem', parking: 'Vaga', warehouse: 'Galpão', hour: 'hora', day: 'dia', month: 'mês' }
@@ -114,12 +115,15 @@ export default function SpaceDetailPage() {
               <Link className="button button-secondary button-full" to="/meus-anuncios">Meus anúncios</Link>
             </div>
           ) : (
+            <div className="stack-form">
+            <AvailabilityCalendar spaceId={id} />
             <form onSubmit={book} className="stack-form">
               <label>Início<input required type="datetime-local" value={reservation.start_at} onChange={(e) => setReservation({ ...reservation, start_at: e.target.value })} /></label>
               <label>Fim<input required type="datetime-local" value={reservation.end_at} onChange={(e) => setReservation({ ...reservation, end_at: e.target.value })} /></label>
               <button className="button button-primary button-full">Solicitar reserva</button>
               <small>O proprietário precisa confirmar a solicitação.</small>
             </form>
+            </div>
           )}
           {message && <div className="alert alert-info">{message}</div>}
         </aside>

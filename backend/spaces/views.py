@@ -1,4 +1,7 @@
+from datetime import date, datetime, time, timedelta
+
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -20,7 +23,7 @@ class SpaceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Space.objects.select_related("owner").prefetch_related("images")
         user = self.request.user
-        owner_detail_actions = {"retrieve", "update", "partial_update", "destroy"}
+        owner_detail_actions = {"retrieve", "update", "partial_update", "destroy", "availability"}
 
         if self.action == "mine":
             qs = qs.filter(owner=user)
@@ -51,6 +54,27 @@ class SpaceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["get"])
+    def availability(self, request, pk=None):
+        space = self.get_object()
+        try:
+            start = date.fromisoformat(request.query_params["from"])
+            end = date.fromisoformat(request.query_params["to"])
+        except (KeyError, ValueError):
+            return Response({"detail": "Informe as datas from e to no formato AAAA-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        if end <= start or end - start > timedelta(days=62):
+            return Response({"detail": "O período deve ter de 1 a 62 dias."}, status=status.HTTP_400_BAD_REQUEST)
+        start_at = timezone.make_aware(datetime.combine(start, time.min))
+        end_at = timezone.make_aware(datetime.combine(end, time.min))
+        from reservations.models import Reservation
+        occupied = Reservation.objects.filter(
+            space=space,
+            status__in=[Reservation.Status.PENDING, Reservation.Status.CONFIRMED],
+            start_at__lt=end_at,
+            end_at__gt=start_at,
+        ).order_by("start_at").values("start_at", "end_at")
+        return Response([{"start_at": item["start_at"], "end_at": item["end_at"]} for item in occupied])
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def mine(self, request):

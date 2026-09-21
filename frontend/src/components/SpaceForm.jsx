@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 const empty = {
   space_type: 'garage', title: '', description: '', price: '', billing_period: 'month',
   state: 'SP', city: '', neighborhood: '', postal_code: '', address_line: '',
@@ -6,10 +6,19 @@ const empty = {
   security_camera: false, access_24h: false, lighting: false, electricity: false, restroom: false,
 }
 
-export function buildSpaceFormData(form, images) {
+export function buildSpaceFormData(form, gallery, removedIds = []) {
   const payload = new FormData()
   Object.entries(form).forEach(([key, value]) => payload.append(key, value ?? ''))
-  images.forEach((image) => payload.append('images_upload', image))
+  let newIndex = 0
+  gallery.forEach((item) => {
+    if (item.file) {
+      payload.append('images_upload', item.file)
+      payload.append('gallery_order', `new:${newIndex++}`)
+    } else if (item.id != null) {
+      payload.append('gallery_order', `old:${item.id}`)
+    }
+  })
+  removedIds.forEach((id) => payload.append('remove_image_ids', id))
   return payload
 }
 
@@ -17,14 +26,45 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
   const [form, setForm] = useState(() => Object.fromEntries(
     Object.entries(empty).map(([key, value]) => [key, initialValues[key] ?? value])
   ))
-  const [images, setImages] = useState([])
-  const [previews, setPreviews] = useState([])
+  const [gallery, setGallery] = useState(() => initialValues.images || (initialValues.cover_image ? [{ id: null, url: initialValues.cover_image }] : []))
+  const [removedIds, setRemovedIds] = useState([])
   const [imageError, setImageError] = useState('')
-  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews])
+  const previewUrls = useRef(new Set())
+  useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), [])
   const set = (field, value) => setForm((old) => ({ ...old, [field]: value }))
   const submit = (event) => {
     event.preventDefault()
-    if (!loading && !imageError) onSubmit(form, images)
+    if (!loading && !imageError) onSubmit(form, gallery, removedIds)
+  }
+  const addImages = (files) => {
+    const selected = Array.from(files || [])
+    if (gallery.length + selected.length > 8) return setImageError('O anúncio pode ter no máximo 8 imagens.')
+    if (selected.some((file) => file.size > 5 * 1024 * 1024)) return setImageError('Cada imagem deve ter no máximo 5 MB.')
+    if (selected.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) return setImageError('Envie imagens JPEG, PNG ou WebP.')
+    setImageError('')
+    const additions = selected.map((file) => {
+      const url = URL.createObjectURL(file)
+      previewUrls.current.add(url)
+      return { file, url }
+    })
+    setGallery((old) => [...old, ...additions])
+  }
+  const removeImage = (index) => {
+    const item = gallery[index]
+    if (item.id != null) setRemovedIds((old) => [...old, item.id])
+    if (item.file) {
+      URL.revokeObjectURL(item.url)
+      previewUrls.current.delete(item.url)
+    }
+    setGallery((old) => old.filter((_, position) => position !== index))
+    setImageError('')
+  }
+  const moveImage = (index, direction) => {
+    const next = [...gallery]
+    const target = index + direction
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setGallery(next)
   }
   const checkboxes = [
     ['covered', 'Coberta'], ['electric_gate', 'Portão elétrico'], ['security_camera', 'Câmeras'],
@@ -68,24 +108,19 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
         </div>
 
         <h2>Fotos do anúncio</h2>
-        <p className="muted">Selecione até 8 imagens. A primeira será a capa do anúncio.</p>
-        <input type="file" accept="image/*" multiple onChange={(e) => {
-          const selected = Array.from(e.target.files || [])
-          const existingCount = initialValues.images?.length || 0
-          if (existingCount + selected.length > 8) {
-            setImageError(`Você pode adicionar no máximo ${8 - existingCount} imagem(ns) a este anúncio.`)
-            setImages([])
-            setPreviews([])
-          } else {
-            setImageError('')
-            setImages(selected)
-            setPreviews(selected.map((file) => URL.createObjectURL(file)))
-          }
-        }} />
+        <p className="muted">Até 8 imagens JPEG, PNG ou WebP, com no máximo 5 MB cada. A primeira será a capa.</p>
+        <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => { addImages(e.target.files); e.target.value = '' }} />
         {imageError && <div className="alert alert-error">{imageError}</div>}
         <div className="image-preview-grid">
-          {(initialValues.images || (initialValues.cover_image ? [{ url: initialValues.cover_image }] : [])).map((image, index) => <img key={image.id ?? index} className="image-preview" src={image.url} alt={`Foto atual ${index + 1}`} />)}
-          {previews.map((url, index) => <img key={url} className="image-preview" src={url} alt={`Nova foto ${index + 1}`} />)}
+          {gallery.map((image, index) => <div className="image-preview-item" key={image.id ?? image.url}>
+            <img className="image-preview" src={image.url} alt={`Foto ${index + 1}`} />
+            {index === 0 && <strong>Capa</strong>}
+            <div className="image-actions">
+              <button type="button" disabled={index === 0} onClick={() => moveImage(index, -1)} aria-label={`Mover foto ${index + 1} para antes`}>←</button>
+              <button type="button" disabled={index === gallery.length - 1} onClick={() => moveImage(index, 1)} aria-label={`Mover foto ${index + 1} para depois`}>→</button>
+              <button type="button" onClick={() => removeImage(index)} aria-label={`Remover foto ${index + 1}`}>Remover</button>
+            </div>
+          </div>)}
         </div>
 
         {error && <div className="alert alert-error">{error}</div>}

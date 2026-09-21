@@ -116,6 +116,10 @@ npm run dev
 
 Frontend: `http://localhost:5173/`
 
+### Recuperação de senha
+
+No desenvolvimento, o link de recuperação aparece no terminal do backend após o pedido em `/esqueci-senha`. Para entregar o link por e-mail, configure `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` e `FRONTEND_URL` no `backend/.env` (exemplo em `backend/.env.example`). O link expira em 1 hora.
+
 ## Endpoints principais
 
 | Método | Endpoint | Descrição |

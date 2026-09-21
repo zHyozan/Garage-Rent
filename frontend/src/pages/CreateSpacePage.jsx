@@ -8,11 +8,11 @@ export default function CreateSpacePage() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const submit = async (form, images) => {
+  const submit = async (form, gallery, removedIds) => {
     setLoading(true)
     setError('')
     try {
-      const payload = buildSpaceFormData(form, images)
+      const payload = buildSpaceFormData(form, gallery, removedIds)
       const { data } = await api.post('/spaces/', payload, { headers: { 'Content-Type': 'multipart/form-data' } })
       navigate(`/espacos/${data.id}`)
     } catch (err) {
