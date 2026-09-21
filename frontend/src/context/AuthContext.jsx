@@ -30,8 +30,8 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('garage:logout', logoutListener)
   }, [])
 
-  const login = async (username, password) => {
-    const { data } = await api.post('/auth/jwt/create/', { username, password })
+  const login = async (email, password) => {
+    const { data } = await api.post('/auth/jwt/create/', { email, password })
     localStorage.setItem('garage_access', data.access)
     localStorage.setItem('garage_refresh', data.refresh)
     await loadUser()
@@ -39,7 +39,7 @@ export function AuthProvider({ children }) {
 
   const register = async (payload) => {
     await api.post('/auth/users/', payload)
-    await login(payload.username, payload.password)
+    await login(payload.email, payload.password)
   }
 
   const logout = () => {

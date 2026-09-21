@@ -40,7 +40,8 @@ export default function RegisterPage() {
           <strong>Requisitos da senha</strong>
           <ul>
             <li>No mínimo 8 caracteres.</li>
-            <li>Evite senhas comuns, parecidas com seus dados ou formadas só por números.</li>
+            <li>Pelo menos uma letra maiúscula, um número e um símbolo.</li>
+            <li>Evite senhas comuns ou parecidas com seus dados.</li>
           </ul>
         </div>
         <label>Repita a senha<input required type="password" value={form.re_password} onChange={(e) => setForm({ ...form, re_password: e.target.value })} /></label>

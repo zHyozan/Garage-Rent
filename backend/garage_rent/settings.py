@@ -69,6 +69,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "garage_rent.password_validators.PasswordCharacterValidator"},
 ]
 
 LANGUAGE_CODE = "pt-br"
@@ -113,9 +114,11 @@ SIMPLE_JWT = {
 }
 
 DJOSER = {
-    "LOGIN_FIELD": "username",
+    "LOGIN_FIELD": "email",
     "USER_CREATE_PASSWORD_RETYPE": True,
     "SERIALIZERS": {
+        "user_create": "garage_rent.auth_serializers.EmailUserCreateSerializer",
+        "user_create_password_retype": "garage_rent.auth_serializers.EmailUserCreatePasswordRetypeSerializer",
         "user": "djoser.serializers.UserSerializer",
         "current_user": "djoser.serializers.UserSerializer",
     },

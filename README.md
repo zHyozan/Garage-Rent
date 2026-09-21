@@ -6,7 +6,7 @@ A proposta é oferecer uma experiência de locação semelhante a grandes plataf
 
 ## MVP atual
 
-- Cadastro e login com JWT.
+- Cadastro e login por e-mail com JWT. A senha exige no mínimo 8 caracteres, uma letra maiúscula, um número e um símbolo.
 - Listagem pública de espaços.
 - Busca por título, descrição, cidade e bairro.
 - Filtros por tipo de espaço, cidade, estado, período de cobrança e preço.
