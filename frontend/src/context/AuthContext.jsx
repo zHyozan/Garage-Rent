@@ -7,7 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const loadUser = async () => {
+  const loadUser = async (throwOnError = false) => {
     if (!localStorage.getItem('garage_access')) {
       setUser(null)
       setLoading(false)
@@ -16,8 +16,9 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get('/auth/users/me/')
       setUser(data)
-    } catch {
+    } catch (error) {
       setUser(null)
+      if (throwOnError) throw error
     } finally {
       setLoading(false)
     }
@@ -34,7 +35,7 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/auth/jwt/create/', { email, password })
     localStorage.setItem('garage_access', data.access)
     localStorage.setItem('garage_refresh', data.refresh)
-    await loadUser()
+    await loadUser(true)
   }
 
   const register = async (payload) => {

@@ -2,9 +2,14 @@ from django.db import transaction
 from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
 from .models import Favorite, Space, SpaceImage
+from .location import distance_km
 
 
 class SpaceSerializer(serializers.ModelSerializer):
+    latitude = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=-90, max_value=90, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=-180, max_value=180, required=False, allow_null=True)
+    distance_km = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
     public_location = serializers.CharField(read_only=True)
     exact_address = serializers.SerializerMethodField()
@@ -25,6 +30,7 @@ class SpaceSerializer(serializers.ModelSerializer):
             "security_camera", "access_24h", "lighting", "electricity", "restroom", "cover_image",
             "images", "images_upload", "remove_image_ids", "gallery_order",
             "is_active", "is_favorite", "is_owner", "created_at", "updated_at",
+            "latitude", "longitude", "accepted_vehicles", "distance_km", "rating",
         ]
         read_only_fields = ["owner", "created_at", "updated_at"]
         extra_kwargs = {
@@ -33,7 +39,28 @@ class SpaceSerializer(serializers.ModelSerializer):
         }
 
     def get_owner(self, obj):
-        return {"id": obj.owner_id, "username": obj.owner.username}
+        verification = getattr(obj.owner, "email_verification", None)
+        return {"id": obj.owner_id, "username": obj.owner.username, "email_verified": bool(verification and verification.email.lower() == obj.owner.email.lower())}
+
+    def get_distance_km(self, obj):
+        nearby = self.context.get("nearby")
+        if nearby and obj.latitude is not None and obj.longitude is not None:
+            return round(distance_km(nearby["lat"], nearby["lng"], obj.latitude, obj.longitude), 1)
+        return None
+
+    def get_rating(self, obj):
+        from django.db.models import Avg, Count
+        from reservations.models import Review
+        result = Review.objects.filter(reservation__space=obj).aggregate(average=Avg("score"), count=Count("id"))
+        if result["average"] is not None:
+            result["average"] = round(result["average"], 1)
+        return result
+
+    def validate_accepted_vehicles(self, value):
+        allowed = {"motorcycle", "car", "suv", "van", "truck", "bicycle"}
+        if not isinstance(value, list) or any(not isinstance(v, str) or v not in allowed for v in value) or len(value) != len(set(value)):
+            raise serializers.ValidationError("Selecione tipos de veículos válidos, sem repetições.")
+        return value
 
     def get_images(self, obj):
         request = self.context.get("request")
@@ -62,6 +89,13 @@ class SpaceSerializer(serializers.ModelSerializer):
         return uploads
 
     def validate(self, attrs):
+        lat = attrs.get("latitude", getattr(self.instance, "latitude", None))
+        lng = attrs.get("longitude", getattr(self.instance, "longitude", None))
+        if (lat is None) != (lng is None):
+            raise serializers.ValidationError("Informe latitude e longitude juntas.")
+        for field in ("length_m", "width_m", "height_m"):
+            if attrs.get(field) is not None and attrs[field] <= 0:
+                raise serializers.ValidationError({field: "A dimensão deve ser maior que zero."})
         uploads = attrs.get("images_upload", [])
         removed = attrs.get("remove_image_ids", [])
         order = attrs.get("gallery_order")

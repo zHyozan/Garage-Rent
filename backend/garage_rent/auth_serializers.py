@@ -3,6 +3,18 @@ from djoser.serializers import UserCreatePasswordRetypeSerializer, UserCreateSer
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from djoser.serializers import UserSerializer
+
+
+class VerifiedUserSerializer(UserSerializer):
+    email_verified = serializers.SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = tuple(UserSerializer.Meta.fields) + ("email_verified",)
+
+    def get_email_verified(self, obj):
+        verification = getattr(obj, "email_verification", None)
+        return bool(verification and verification.email.lower() == obj.email.lower())
 
 
 class EmailUserCreateSerializer(UserCreateSerializer):

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { apiError } from '../api/errors'
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
@@ -17,8 +18,8 @@ export default function LoginPage() {
     try {
       await login(form.email, form.password)
       navigate(location.state?.from || '/')
-    } catch {
-      setError('E-mail ou senha inválidos.')
+    } catch (error) {
+      setError(error.response?.status === 401 ? 'E-mail ou senha inválidos. Confira os dados ou use “Esqueceu a senha?”.' : apiError(error))
     } finally {
       setLoading(false)
     }

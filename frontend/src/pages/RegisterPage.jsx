@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { apiError } from '../api/errors'
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ username: '', email: '', password: '', re_password: '' })
@@ -17,12 +18,7 @@ export default function RegisterPage() {
       await register(form)
       navigate('/')
     } catch (error) {
-      const data = error.response?.data || { detail: 'Não foi possível concluir o cadastro.' }
-      const parsed = Object.entries(data).flatMap(([field, value]) => {
-        const messages = Array.isArray(value) ? value : [value]
-        return messages.map((message) => `${field === 'detail' ? '' : `${field}: `}${message}`)
-      })
-      setErrors(parsed)
+      setErrors([apiError(error, 'Não foi possível concluir o cadastro.')])
     } finally {
       setLoading(false)
     }

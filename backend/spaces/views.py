@@ -10,6 +10,9 @@ from rest_framework.response import Response
 from .models import Favorite, Space
 from .permissions import IsOwnerOrReadOnly
 from .serializers import SpaceSerializer
+from .location import NearbyQuery, distance_km
+from decimal import Decimal, InvalidOperation
+from rest_framework.exceptions import ValidationError
 
 
 class SpaceViewSet(viewsets.ModelViewSet):
@@ -19,6 +22,37 @@ class SpaceViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "description", "city", "neighborhood"]
     ordering_fields = ["price", "created_at", "updated_at"]
     ordering = ["-created_at"]
+
+    def get_nearby(self):
+        if not hasattr(self, "_nearby"):
+            self._nearby = None
+            if self.action == "list" and any(key in self.request.query_params for key in ("lat", "lng", "radius")):
+                serializer = NearbyQuery(data=self.request.query_params)
+                serializer.is_valid(raise_exception=True)
+                self._nearby = serializer.validated_data
+        return self._nearby
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "nearby": self.get_nearby()}
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        nearby = self.get_nearby()
+        if nearby:
+            # Filter before pagination. Distance uses only the public coarse region.
+            matches = [(s.pk, distance_km(nearby["lat"], nearby["lng"], s.latitude, s.longitude))
+                       for s in queryset.exclude(latitude=None).exclude(longitude=None)]
+            matches = sorted((pk, d) for pk, d in matches if d <= nearby["radius"])
+            queryset = queryset.filter(pk__in=[pk for pk, _ in matches])
+            if self.request.query_params.get("ordering") == "distance":
+                from django.db.models import Case, When, IntegerField
+                ids = [pk for pk, _ in sorted(matches, key=lambda item: item[1])]
+                if ids:
+                    queryset = queryset.order_by(Case(*[When(pk=pk, then=i) for i, pk in enumerate(ids)], output_field=IntegerField()))
+        vehicle = self.request.query_params.get("vehicle")
+        if vehicle:
+            queryset = queryset.filter(pk__in=[s.pk for s in queryset if vehicle in s.accepted_vehicles])
+        return queryset
 
     def get_queryset(self):
         qs = Space.objects.select_related("owner").prefetch_related("images")
@@ -35,6 +69,14 @@ class SpaceViewSet(viewsets.ModelViewSet):
         if self.action == "list":
             min_price = self.request.query_params.get("min_price")
             max_price = self.request.query_params.get("max_price")
+            try:
+                for value in (min_price, max_price):
+                    if value and (not Decimal(value).is_finite() or Decimal(value) < 0):
+                        raise InvalidOperation
+                if min_price and max_price and Decimal(min_price) > Decimal(max_price):
+                    raise InvalidOperation
+            except (InvalidOperation, ValueError):
+                raise ValidationError("Informe uma faixa de preços válida.")
             location = self.request.query_params.get("location")
             if min_price:
                 qs = qs.filter(price__gte=min_price)
@@ -46,7 +88,7 @@ class SpaceViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in {"list", "retrieve"}:
+        if self.action in {"list", "retrieve", "reviews"}:
             return [AllowAny()]
         if self.action in {"mine", "favorites", "favorite"}:
             return [IsAuthenticated()]
@@ -54,6 +96,15 @@ class SpaceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["get"])
+    def reviews(self, request, pk=None):
+        from reservations.models import Review
+        from reservations.serializers import ReviewSerializer
+        space = self.get_object()
+        queryset = Review.objects.filter(reservation__space=space).select_related("reservation__renter")
+        page = self.paginate_queryset(queryset)
+        return self.get_paginated_response(ReviewSerializer(page, many=True).data)
 
     @action(detail=True, methods=["get"])
     def availability(self, request, pk=None):

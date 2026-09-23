@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import RegionMap from './RegionMap'
+export const vehicleLabels = { motorcycle: 'Moto', car: 'Carro', suv: 'SUV', van: 'Van', truck: 'Caminhão', bicycle: 'Bicicleta' }
 const empty = {
   space_type: 'garage', title: '', description: '', price: '', billing_period: 'month',
   state: 'SP', city: '', neighborhood: '', postal_code: '', address_line: '',
   length_m: '', width_m: '', height_m: '', covered: false, electric_gate: false,
   security_camera: false, access_24h: false, lighting: false, electricity: false, restroom: false,
+  latitude: '', longitude: '', accepted_vehicles: [],
 }
 
 export function buildSpaceFormData(form, gallery, removedIds = []) {
   const payload = new FormData()
-  Object.entries(form).forEach(([key, value]) => payload.append(key, value ?? ''))
+  Object.entries(form).forEach(([key, value]) => payload.append(key, key === 'accepted_vehicles' ? JSON.stringify(value) : value ?? ''))
   let newIndex = 0
   gallery.forEach((item) => {
     if (item.file) {
@@ -29,6 +32,15 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
   const [gallery, setGallery] = useState(() => initialValues.images || (initialValues.cover_image ? [{ id: null, url: initialValues.cover_image }] : []))
   const [removedIds, setRemovedIds] = useState([])
   const [imageError, setImageError] = useState('')
+  const [locationMessage, setLocationMessage] = useState('')
+  const locate = () => {
+    if (!navigator.geolocation) return setLocationMessage('Localização indisponível. Escolha uma região no mapa.')
+    setLocationMessage('Obtendo localização...')
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      setForm((old) => ({ ...old, latitude: coords.latitude.toFixed(2), longitude: coords.longitude.toFixed(2) }))
+      setLocationMessage('Região selecionada. Confira se corresponde ao anúncio.')
+    }, () => setLocationMessage('Não foi possível localizar. Escolha uma região no mapa.'), { timeout: 10000 })
+  }
   const previewUrls = useRef(new Set())
   useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), [])
   const set = (field, value) => setForm((old) => ({ ...old, [field]: value }))
@@ -92,6 +104,13 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
           <label>Endereço completo<input required value={form.address_line} onChange={(e) => set('address_line', e.target.value)} /></label>
         </div>
         <div className="alert alert-info">O endereço completo não será exibido publicamente.</div>
+        <h3>Região no mapa (opcional)</h3>
+        <p className="muted">Clique na região do anúncio ou use sua localização se estiver no local. Guardamos apenas uma região aproximada de cerca de 1 km.</p>
+        <button type="button" className="button button-secondary" onClick={locate}>Usar minha localização</button>
+        <RegionMap position={form} onSelect={(point) => setForm((old) => ({ ...old, ...point }))} />
+        <div className="form-grid two"><label>Latitude aproximada<input type="number" min="-90" max="90" step="0.01" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} /></label><label>Longitude aproximada<input type="number" min="-180" max="180" step="0.01" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} /></label></div>
+        <button type="button" className="link-button" onClick={() => setForm((old) => ({ ...old, latitude: '', longitude: '' }))}>Remover região</button>
+        {locationMessage && <p role="status">{locationMessage}</p>}
 
         <h2>Dimensões (opcional)</h2>
         <div className="form-grid three">
@@ -101,6 +120,9 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
         </div>
 
         <h2>Comodidades</h2>
+        <h3>Veículos aceitos</h3>
+        <div className="checkbox-grid">{Object.entries(vehicleLabels).map(([value, label]) => <label key={value} className="check"><input type="checkbox" checked={form.accepted_vehicles.includes(value)} onChange={(e) => set('accepted_vehicles', e.target.checked ? [...form.accepted_vehicles, value] : form.accepted_vehicles.filter((item) => item !== value))} />{label}</label>)}</div>
+        <p className="muted">Confira as dimensões e a altura máxima antes de indicar os veículos aceitos.</p>
         <div className="checkbox-grid">
           {checkboxes.map(([field, label]) => (
             <label className="check" key={field}><input type="checkbox" checked={form[field]} onChange={(e) => set(field, e.target.checked)} />{label}</label>

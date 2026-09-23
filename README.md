@@ -59,6 +59,58 @@ Garage-Rent/
 
 ## Executando localmente
 
+### Abrir com um clique no Windows
+
+Com Python e Node.js instalados, dê dois cliques em `Abrir Garage Rent.cmd` na raiz.
+O script prepara as dependências, aplica migrações, inicia os servidores em segundo
+plano e abre `http://localhost:5173/`. Os logs ficam em `.local/` (fora do Git).
+Não feche os servidores se estiver usando os comandos manuais abaixo.
+
+Para testar sem abrir o navegador: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1 -NoBrowser`.
+
+### Recursos de busca, reserva e confiança
+
+- **Mapa e proximidade:** o anunciante seleciona uma região no mapa ou usa a
+  localização do dispositivo. As coordenadas são limitadas a duas casas decimais;
+  apenas essa região é armazenada e usada no cálculo de distância em linha reta.
+  O mapa mostra as regiões dos resultados da página atual. Anúncios antigos
+  precisam receber uma região para aparecer na busca por proximidade; continuam
+  disponíveis na busca normal. A localização do visitante só é solicitada ao
+  clicar em “Buscar perto de mim”.
+- **Anúncios:** veículos aceitos, altura máxima, dimensões e comodidades aparecem
+  nos detalhes; a busca permite filtrar veículo, cobertura, acesso 24h e preço.
+- **Reserva:** “Consultar total e disponibilidade” calcula no servidor o valor
+  por hora, diária ou bloco de 30 dias iniciado. A confirmação revalida o período
+  e o total; mudanças de preço exigem nova consulta. As datas enviadas têm fuso.
+- **Cancelamento:** o locatário pode cancelar antes do início. Depois, a interface
+  orienta combinar alterações com o proprietário. Esta versão não processa
+  pagamentos nem reembolsos.
+- **Avaliações:** após o fim do período, qualquer participante pode concluir uma
+  reserva confirmada. Só o locatário pode publicar uma avaliação de 1 a 5, uma
+  por reserva concluída. A nota média e os comentários são públicos.
+- **Verificação de e-mail:** usuários conectados podem pedir um link no aviso do
+  topo. O link expira em 24 horas; o selo confirma apenas o e-mail, não identidade.
+  No desenvolvimento, o link aparece no terminal ou em `.local/backend.log`.
+  Para entrega real, configure SMTP em `backend/.env`, como na recuperação de
+  senha. Nenhuma credencial deve ser adicionada ao Git.
+- **Celular:** menu acessível, filtros expansíveis, troca de fotos por gesto e
+  atalho fixo para a seção de reserva.
+
+O mapa usa [Leaflet](https://leafletjs.com/reference.html) e tiles do OpenStreetMap,
+com atribuição visível. O mapa base requer internet; em produção, configure um
+provedor compatível com o tráfego e com a [política de uso dos tiles](https://operations.osmfoundation.org/policies/tiles/).
+
+### Verificação das alterações
+
+No backend: `.venv\Scripts\python.exe manage.py test`.
+No frontend: `npm test` e `npm run build`.
+
+### Paleta de cores
+
+A paleta laranja está em `frontend/src/theme.css`. Para voltar ao verde, altere
+`data-theme="orange"` para `data-theme="green"` em `frontend/index.html` e ajuste
+a meta `theme-color` para `#173b32`.
+
 ### 1. Backend
 
 ```bash

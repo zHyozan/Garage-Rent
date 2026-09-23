@@ -1,8 +1,10 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useState } from 'react'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const [open, setOpen] = useState(false)
 
   return (
     <header className="navbar">
@@ -12,7 +14,8 @@ export default function Navbar() {
           <span>Garage Rent</span>
         </Link>
 
-        <nav className="nav-links">
+        <button className="menu-toggle button button-secondary" aria-expanded={open} aria-controls="main-navigation" onClick={() => setOpen(!open)}>Menu</button>
+        <nav id="main-navigation" aria-label="Navegação principal" className={`nav-links ${open ? 'is-open' : ''}`} onClick={() => setOpen(false)}>
           <NavLink to="/">Explorar</NavLink>
           {user && <NavLink to="/meus-anuncios">Meus anúncios</NavLink>}
           {user && <NavLink to="/reservas">Reservas</NavLink>}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
+import { apiError } from '../api/errors'
 import SpaceForm, { buildSpaceFormData } from '../components/SpaceForm'
 
 export default function CreateSpacePage() {
@@ -16,8 +17,7 @@ export default function CreateSpacePage() {
       const { data } = await api.post('/spaces/', payload, { headers: { 'Content-Type': 'multipart/form-data' } })
       navigate(`/espacos/${data.id}`)
     } catch (err) {
-      const data = err.response?.data
-      setError(data ? JSON.stringify(data) : 'Não foi possível criar o anúncio.')
+      setError(apiError(err, 'Não foi possível criar o anúncio.'))
     } finally {
       setLoading(false)
     }

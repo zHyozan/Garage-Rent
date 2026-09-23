@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from spaces.models import Space
 
+CANCELLATION_POLICY = "Cancelamento sem cobrança pela plataforma até o início da reserva. Após o início, combine qualquer alteração com o proprietário. Não há pagamento on-line nesta versão."
+
 
 class Reservation(models.Model):
     class Status(models.TextChoices):
@@ -50,3 +52,14 @@ class Reservation(models.Model):
             days = math.ceil(seconds / 86400)
             units = math.ceil(days / 30)
         return (Decimal(units) * self.space.price).quantize(Decimal("0.01"))
+
+
+class Review(models.Model):
+    reservation = models.OneToOneField(Reservation, on_delete=models.CASCADE, related_name="review")
+    score = models.PositiveSmallIntegerField()
+    comment = models.TextField(max_length=2000, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [models.CheckConstraint(condition=models.Q(score__gte=1, score__lte=5), name="review_score_1_to_5")]

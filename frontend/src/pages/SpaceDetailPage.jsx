@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import { useAuth } from '../context/AuthContext'
+import { apiError } from '../api/errors'
+import RegionMap from '../components/RegionMap'
+import Reviews from '../components/Reviews'
+import { vehicleLabels } from '../components/SpaceForm'
 
 const labels = { garage: 'Garagem', parking: 'Vaga', warehouse: 'Galpão', hour: 'hora', day: 'dia', month: 'mês' }
 
@@ -15,11 +19,19 @@ export default function SpaceDetailPage() {
   const [message, setMessage] = useState('')
   const [photoIndex, setPhotoIndex] = useState(0)
   const [reservation, setReservation] = useState({ start_at: '', end_at: '' })
+  const [quote, setQuote] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [accepted, setAccepted] = useState(false)
+  const [availabilityVersion, setAvailabilityVersion] = useState(0)
+  const touchStart = useRef(null)
+  const changeDates = (value) => { setReservation(value); setQuote(null); setAccepted(false); setMessage('') }
 
   const load = async () => {
     try {
       const { data } = await api.get(`/spaces/${id}/`)
       setSpace(data)
+    } catch (error) {
+      setMessage(apiError(error))
     } finally {
       setLoading(false)
     }
@@ -38,17 +50,30 @@ export default function SpaceDetailPage() {
     event.preventDefault()
     setMessage('')
     if (!user) return navigate('/entrar', { state: { from: `/espacos/${id}` } })
+    if (busy) return
+    if (new Date(reservation.end_at) <= new Date(reservation.start_at)) return setMessage('O fim deve ser posterior ao início.')
+    setBusy(true)
     try {
-      await api.post('/reservations/', { space: Number(id), ...reservation })
-      setMessage('Solicitação de reserva enviada ao proprietário.')
+      const payload = { space: Number(id), start_at: new Date(reservation.start_at).toISOString(), end_at: new Date(reservation.end_at).toISOString() }
+      if (!quote) {
+        const { data } = await api.post('/reservations/quote/', payload)
+        setQuote(data)
+      } else {
+        if (!accepted) return setMessage('Leia e aceite as condições de cancelamento.')
+        const { data } = await api.post('/reservations/', { ...payload, expected_total: quote.total_amount })
+        setMessage(`Solicitação #${data.id} enviada ao proprietário. Total: ${Number(data.total_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}. Acompanhe em Reservas.`)
+        setQuote(null); setAccepted(false); setReservation({ start_at: '', end_at: '' }); setAvailabilityVersion((v) => v + 1)
+      }
     } catch (error) {
-      const data = error.response?.data
-      setMessage(data?.non_field_errors?.[0] || data?.detail || (typeof data === 'string' ? data : 'Não foi possível solicitar a reserva.'))
+      setQuote(null); setAccepted(false)
+      setMessage(apiError(error, 'Não foi possível solicitar a reserva.'))
+    } finally {
+      setBusy(false)
     }
   }
 
   if (loading) return <div className="page-center">Carregando...</div>
-  if (!space) return <div className="page-center">Anúncio não encontrado.</div>
+  if (!space) return <div className="page-center">{message || 'Anúncio não encontrado.'}</div>
   const photos = space.images?.length ? space.images : (space.cover_image ? [{ url: space.cover_image }] : [])
   const activePhoto = photos[photoIndex] || photos[0]
 
@@ -58,7 +83,7 @@ export default function SpaceDetailPage() {
         <section>
           {activePhoto ? (
             <div className="photo-gallery">
-              <div className="photo-stage">
+              <div className="photo-stage" onTouchStart={(e) => { touchStart.current = e.touches[0].clientX }} onTouchEnd={(e) => { if (touchStart.current != null && Math.abs(e.changedTouches[0].clientX - touchStart.current) > 50) setPhotoIndex((photoIndex + (e.changedTouches[0].clientX < touchStart.current ? 1 : -1) + photos.length) % photos.length); touchStart.current = null }}>
                 <img className="detail-image" src={activePhoto.url} alt={`${space.title}, foto ${photoIndex + 1} de ${photos.length}`} />
                 {photos.length > 1 && <>
                   <button type="button" className="photo-arrow photo-prev" aria-label="Foto anterior" onClick={() => setPhotoIndex((photoIndex - 1 + photos.length) % photos.length)}>‹</button>
@@ -80,6 +105,8 @@ export default function SpaceDetailPage() {
           </div>
           {space.is_owner && !space.is_active && <div className="alert alert-info">Este anúncio está pausado e não aparece para outros usuários.</div>}
           <p className="detail-description">{space.description}</p>
+          <p>Anunciado por <strong>{space.owner.username}</strong> {space.owner.email_verified && <span className="status">E-mail verificado</span>}</p>
+          <h2>Veículos aceitos</h2><div className="feature-grid">{space.accepted_vehicles?.length ? space.accepted_vehicles.map((vehicle) => <span key={vehicle}>{vehicleLabels[vehicle]}</span>) : <p className="muted">Não informado pelo proprietário.</p>}</div>
 
           <h2>Comodidades</h2>
           <div className="feature-grid">
@@ -94,16 +121,18 @@ export default function SpaceDetailPage() {
 
           {(space.length_m || space.width_m || space.height_m) && (
             <div className="dimensions">
-              <strong>Dimensões:</strong> {space.length_m || '?'}m × {space.width_m || '?'}m × {space.height_m || '?'}m
+              <strong>Dimensões:</strong><p>Comprimento: {space.length_m ? `${space.length_m} m` : 'não informado'} · Largura: {space.width_m ? `${space.width_m} m` : 'não informada'}</p><p>Altura máxima: {space.height_m ? `${space.height_m} m` : 'não informada'}</p>
             </div>
           )}
 
           {space.exact_address && (
             <div className="alert alert-info"><strong>Endereço completo:</strong> {space.exact_address.address_line} {space.exact_address.postal_code}</div>
           )}
+          {space.latitude != null && <section><h2>Região aproximada</h2><RegionMap position={space} /><p className="muted">O mapa mostra apenas a região. O endereço completo é liberado após a confirmação da reserva.</p></section>}
+          <Reviews key={id} spaceId={id} />
         </section>
 
-        <aside className="booking-card">
+        <aside className="booking-card" id="reservar">
           <div className="space-price big-price">
             <strong>{Number(space.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
             <span>/{labels[space.billing_period]}</span>
@@ -116,18 +145,21 @@ export default function SpaceDetailPage() {
             </div>
           ) : (
             <div className="stack-form">
-            <AvailabilityCalendar spaceId={id} />
+            <AvailabilityCalendar key={availabilityVersion} spaceId={id} />
             <form onSubmit={book} className="stack-form">
-              <label>Início<input required type="datetime-local" value={reservation.start_at} onChange={(e) => setReservation({ ...reservation, start_at: e.target.value })} /></label>
-              <label>Fim<input required type="datetime-local" value={reservation.end_at} onChange={(e) => setReservation({ ...reservation, end_at: e.target.value })} /></label>
-              <button className="button button-primary button-full">Solicitar reserva</button>
+              <label>Início<input required disabled={busy} type="datetime-local" value={reservation.start_at} onChange={(e) => changeDates({ ...reservation, start_at: e.target.value })} /></label>
+              <label>Fim<input required disabled={busy} type="datetime-local" min={reservation.start_at} value={reservation.end_at} onChange={(e) => changeDates({ ...reservation, end_at: e.target.value })} /></label>
+              <p className="muted">Cobrança por {labels[space.billing_period]} iniciado{space.billing_period === 'month' ? ' (blocos de 30 dias)' : ''}. Horários no fuso do seu dispositivo.</p>
+              {quote && <div className="quote-summary" role="status"><strong>Total: {Number(quote.total_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong><p>{quote.cancellation_policy}</p><small>{quote.detail}</small><label className="check"><input required type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />Li e aceito as condições de cancelamento.</label></div>}
+              <button disabled={busy || (quote && !accepted)} className="button button-primary button-full">{busy ? 'Aguarde...' : quote ? 'Confirmar solicitação' : 'Consultar total e disponibilidade'}</button>
               <small>O proprietário precisa confirmar a solicitação.</small>
             </form>
             </div>
           )}
-          {message && <div className="alert alert-info">{message}</div>}
+          {message && <div className="alert alert-info" role="status">{message}</div>}
         </aside>
       </div>
+      {!space.is_owner && <a className="mobile-booking button button-primary" href="#reservar">Ver disponibilidade e reservar</a>}
     </main>
   )
 }

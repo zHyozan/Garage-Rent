@@ -4,8 +4,11 @@ from django.contrib import admin
 from django.urls import include, path
 from .auth_views import EmailTokenObtainPairView
 from .password_reset import PasswordResetConfirmView, PasswordResetRequestView
+from .email_verification import EmailVerificationRequestView, EmailVerificationConfirmView
 
 urlpatterns = [
+    path("api/auth/verify-email/", EmailVerificationRequestView.as_view()),
+    path("api/auth/verify-email/confirm/", EmailVerificationConfirmView.as_view()),
     path("admin/", admin.site.urls),
     path("api/auth/jwt/create/", EmailTokenObtainPairView.as_view(), name="jwt-create-email"),
     path("api/auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset-request"),

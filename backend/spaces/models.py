@@ -25,6 +25,10 @@ class Space(models.Model):
     neighborhood = models.CharField(max_length=100)
     postal_code = models.CharField(max_length=12, blank=True)
     address_line = models.CharField(max_length=180, help_text="Endereço exato, não exibido publicamente.")
+    # Only a coarse region is stored, never precise GPS coordinates.
+    latitude = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    accepted_vehicles = models.JSONField(default=list, blank=True)
 
     length_m = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     width_m = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
@@ -81,3 +85,9 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f"{self.user} -> {self.space}"
+
+
+class EmailVerification(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="email_verification")
+    email = models.EmailField()
+    verified_at = models.DateTimeField()

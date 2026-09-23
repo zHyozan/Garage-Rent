@@ -11,12 +11,16 @@ import RegisterPage from './pages/RegisterPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ReservationsPage from './pages/ReservationsPage'
 import SpaceDetailPage from './pages/SpaceDetailPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
+import VerificationBanner from './components/VerificationBanner'
 
 export default function App() {
   return (
     <>
       <Navbar />
+      <VerificationBanner />
       <Routes>
+        <Route path="/verificar-email" element={<VerifyEmailPage />} />
         <Route path="/" element={<HomePage />} />
         <Route path="/entrar" element={<LoginPage />} />
         <Route path="/cadastro" element={<RegisterPage />} />

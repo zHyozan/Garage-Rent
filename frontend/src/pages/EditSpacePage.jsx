@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
+import { apiError } from '../api/errors'
 import SpaceForm, { buildSpaceFormData } from '../components/SpaceForm'
 
 export default function EditSpacePage() {
@@ -23,8 +24,8 @@ export default function EditSpacePage() {
         return
       }
       setSpace({ ...data, ...data.exact_address })
-    }).catch(() => {
-      if (active) setError('Não foi possível carregar o anúncio.')
+    }).catch((error) => {
+      if (active) setError(apiError(error, 'Não foi possível carregar o anúncio.'))
     }).finally(() => {
       if (active) setLoading(false)
     })
@@ -38,7 +39,7 @@ export default function EditSpacePage() {
       await api.patch(`/spaces/${id}/`, buildSpaceFormData(form, gallery, removedIds))
       navigate(`/espacos/${id}`)
     } catch (err) {
-      setError(err.response?.data ? JSON.stringify(err.response.data) : 'Não foi possível salvar o anúncio.')
+      setError(apiError(err, 'Não foi possível salvar o anúncio.'))
     } finally {
       setSaving(false)
     }

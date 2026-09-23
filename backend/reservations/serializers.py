@@ -2,10 +2,23 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 from spaces.models import Space
-from .models import Reservation
+from .models import Reservation, Review, CANCELLATION_POLICY
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    score = serializers.IntegerField(min_value=1, max_value=5)
+    author = serializers.CharField(source="reservation.renter.username", read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["id", "score", "comment", "author", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class ReservationSerializer(serializers.ModelSerializer):
+    expected_total = serializers.DecimalField(max_digits=12, decimal_places=2, write_only=True, required=False)
+    review = ReviewSerializer(read_only=True)
+    cancellation_policy = serializers.SerializerMethodField()
     renter = serializers.SerializerMethodField()
     space_summary = serializers.SerializerMethodField()
 
@@ -14,8 +27,13 @@ class ReservationSerializer(serializers.ModelSerializer):
         fields = [
             "id", "space", "space_summary", "renter", "start_at", "end_at", "status",
             "unit_price", "total_amount", "created_at", "updated_at",
+            "review", "cancellation_policy",
+            "expected_total",
         ]
         read_only_fields = ["renter", "status", "unit_price", "total_amount", "created_at", "updated_at"]
+
+    def get_cancellation_policy(self, obj):
+        return CANCELLATION_POLICY
 
     def get_renter(self, obj):
         return {"id": obj.renter_id, "username": obj.renter.username}
@@ -50,6 +68,8 @@ class ReservationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         space = Space.objects.select_for_update().get(pk=validated_data["space"].pk)
+        if not space.is_active or space.owner_id == request.user.id:
+            raise serializers.ValidationError("Este espaço não está disponível para reserva.")
         start_at = validated_data["start_at"]
         end_at = validated_data["end_at"]
 
@@ -72,5 +92,8 @@ class ReservationSerializer(serializers.ModelSerializer):
         )
         reservation.full_clean(exclude=["total_amount"])
         reservation.total_amount = reservation.calculate_total()
+        expected = validated_data.get("expected_total")
+        if expected is not None and expected != reservation.total_amount:
+            raise serializers.ValidationError("O preço mudou. Consulte o total novamente antes de confirmar.")
         reservation.save()
         return reservation

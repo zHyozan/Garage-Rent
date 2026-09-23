@@ -115,7 +115,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 12,
-    "DEFAULT_THROTTLE_RATES": {"password_reset": "5/hour"},
+    "DEFAULT_THROTTLE_RATES": {"password_reset": "5/hour", "email_verification": "5/hour"},
 }
 
 SIMPLE_JWT = {
@@ -132,7 +132,7 @@ DJOSER = {
     "SERIALIZERS": {
         "user_create": "garage_rent.auth_serializers.EmailUserCreateSerializer",
         "user_create_password_retype": "garage_rent.auth_serializers.EmailUserCreatePasswordRetypeSerializer",
-        "user": "djoser.serializers.UserSerializer",
-        "current_user": "djoser.serializers.UserSerializer",
+        "user": "garage_rent.auth_serializers.VerifiedUserSerializer",
+        "current_user": "garage_rent.auth_serializers.VerifiedUserSerializer",
     },
 }
