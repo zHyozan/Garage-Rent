@@ -201,3 +201,21 @@ html { scroll-behavior: smooth; scroll-padding-top: 100px; }
   .calendar-grid button { min-height: 36px; }
   .booking-card { scroll-margin-top: 96px; }
 }
+
+/* Classified listings and optional promotion */
+.sponsored-label { display: inline-block; padding: .3rem .65rem; border: 1px solid #bd641e; border-radius: 6px; background: #fff3e7; color: #85400c; font-size: .8rem; font-weight: 700; margin-bottom: .7rem; }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.metric-card { display: flex; flex-direction: column; padding: 1.25rem; background: white; border: 1px solid #e1e3e0; border-radius: 12px; }
+.metric-card strong { font-size: 2rem; }
+.alert-callout { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; background: #fff3e7; padding: 1.25rem; border-radius: 12px; margin: 1.25rem 0; }
+.alert-callout p { margin-bottom: 0; }
+.promotion-order { border-top: 1px solid #d9ded8; margin-top: 1.5rem; padding-top: 1rem; }
+.promotion-offer { margin: 1rem 0; }
+.preserve-lines { white-space: pre-wrap; overflow-wrap: anywhere; }
+.trust-section { margin-top: 2rem; }
+.trust-section details { margin: 1rem 0; padding: 1rem; border: 1px solid #d9ded8; border-radius: 10px; }
+.trust-section summary { cursor: pointer; font-weight: 600; }
+.how-it-works { border-top: 1px solid #d9ded8; }
+.management-card label { display: grid; gap: .5rem; margin: .5rem 0; }
+.booking-card p, .form-card p { overflow-wrap: anywhere; }
+@media (max-width: 640px) { .alert-callout > .button { width: 100%; } .metrics-grid { grid-template-columns: 1fr 1fr; } }

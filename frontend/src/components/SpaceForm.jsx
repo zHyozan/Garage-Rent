@@ -7,6 +7,7 @@ const empty = {
   length_m: '', width_m: '', height_m: '', covered: false, electric_gate: false,
   security_camera: false, access_24h: false, lighting: false, electricity: false, restroom: false,
   latitude: '', longitude: '', accepted_vehicles: [],
+  contact_phone: '', whatsapp_enabled: true, availability_status: 'available',
 }
 
 export function buildSpaceFormData(form, gallery, removedIds = []) {
@@ -93,6 +94,12 @@ export default function SpaceForm({ initialValues = {}, onSubmit, error, loading
         <label>Descrição<textarea required rows="5" value={form.description} onChange={(e) => set('description', e.target.value)} /></label>
         <label>Preço (R$)<input required type="number" min="0.01" step="0.01" value={form.price} onChange={(e) => set('price', e.target.value)} /></label>
 
+        <h2>Contato e disponibilidade</h2>
+        <p>Publicação gratuita. O destaque pago é opcional e pode ser solicitado depois de publicar.</p>
+        <label>Telefone público (opcional)<input type="tel" maxLength="24" placeholder="5511999999999" value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)} /></label>
+        <p className="muted">Inclua 55 + DDD + número. Se informado, este telefone será exibido no anúncio. Sem telefone, interessados usam o formulário de contato.</p>
+        <label className="check"><input type="checkbox" checked={form.whatsapp_enabled} onChange={(e) => set('whatsapp_enabled', e.target.checked)} />Este telefone recebe WhatsApp</label>
+        <label>Disponibilidade<select value={form.availability_status} onChange={(e) => set('availability_status', e.target.value)}><option value="available">Disponível</option><option value="negotiating">Em negociação</option><option value="rented">Alugado</option></select></label>
         <h2>Localização</h2>
         <div className="form-grid three">
           <label>UF<input required maxLength="2" value={form.state} onChange={(e) => set('state', e.target.value.toUpperCase())} /></label>

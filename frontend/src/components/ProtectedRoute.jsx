@@ -6,6 +6,6 @@ export default function ProtectedRoute({ children }) {
   const location = useLocation()
 
   if (loading) return <div className="page-center">Carregando...</div>
-  if (!user) return <Navigate to="/entrar" replace state={{ from: location.pathname }} />
+  if (!user) return <Navigate to="/entrar" replace state={{ from: location.pathname + location.search }} />
   return children
 }

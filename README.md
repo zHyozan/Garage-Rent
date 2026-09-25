@@ -1,211 +1,95 @@
 # Garage Rent
 
-**Garage Rent** é um marketplace especializado exclusivamente no aluguel de **garagens particulares, vagas de estacionamento e galpões**.
+Portal de anúncios de garagens, vagas e galpões. A publicação é gratuita; interessados negociam, contratam e pagam diretamente ao anunciante. O site não cobra comissão nem recebe pagamentos de aluguel.
 
-A proposta é oferecer uma experiência de locação semelhante a grandes plataformas imobiliárias, mas desenhada para as necessidades específicas desse nicho: descoberta de espaços, filtros, anúncio pelo proprietário, favoritos, reservas, gestão de disponibilidade e evolução futura para pagamentos e avaliações.
+## Funcionalidades
 
-## MVP atual
+- Busca por região, tipo, preço e características, mapa aproximado, galeria, favoritos e vitrine de anúncios do mesmo proprietário.
+- Contato por WhatsApp, telefone público opcional e formulário para usuários autenticados. O anunciante recebe a mensagem no painel e responde pelo e-mail/telefone informado.
+- Disponibilidade: disponível, em negociação e alugado. Alugados saem da busca; anúncios pausados ou ocultos pela moderação não são públicos.
+- Painel de resultados dos últimos 30 dias: visualizações, cliques no WhatsApp, cliques no telefone e mensagens. Cliques não significam conversas ou locações. Eventos são deduplicados por visitante estimado, canal, anúncio e dia; visitas do proprietário são ignoradas. Identificadores são hashes diários; não são pessoas únicas comprovadas.
+- Destaque opcional inicial de **R$ 29,90 por 7 dias**, cobrança externa e confirmação manual. Publicação gratuita sem limite comercial de anúncios nesta fase.
+- Alertas por cidade/bairro, tipo, período e faixa de preço, com consentimento explícito e pausa/exclusão. Entrega de ofertas exige e-mail verificado.
+- Avaliações de **atendimento**, uma por usuário/anúncio, após mensagem pelo formulário. Não comprovam locação. Avaliações antigas de reservas não entram nessa nota.
+- Denúncias privadas e moderação administrativa; bloqueio de duplicatas ativas do mesmo proprietário com mesmo título, cidade e endereço. Vagas diferentes no mesmo endereço devem ter títulos distintos. Outros casos podem ser denunciados.
+- Endereço exato disponível somente ao proprietário, que decide quando compartilhá-lo na negociação. E-mail verificado não equivale a identidade verificada.
 
-- Cadastro e login por e-mail com JWT. A senha exige no mínimo 8 caracteres, uma letra maiúscula, um número e um símbolo.
-- Listagem pública de espaços.
-- Busca por título, descrição, cidade e bairro.
-- Filtros por tipo de espaço, cidade, estado, período de cobrança e preço.
-- Anúncios de garagem, vaga e galpão.
-- Upload de imagem de capa.
-- Endereço exato protegido; visitantes veem apenas bairro/cidade/UF.
-- Área "Meus anúncios".
-- Editar e excluir apenas anúncios próprios.
-- Favoritar/desfavoritar espaços.
-- Solicitar reserva com período definido.
-- Bloqueio de reservas sobrepostas pendentes/confirmadas.
-- Proprietário pode confirmar ou recusar solicitações.
-- Locatário pode cancelar sua reserva.
-- Cálculo de valor por hora, diária ou mês (30 dias para estimativa mensal).
+## Executar localmente
 
-## Stack
+No Windows, abra `Abrir Garage Rent.cmd`. O iniciador instala dependências, aplica migrações e abre `http://localhost:5173/`. Logs ficam em `.local/`.
 
-### Backend
-- Python / Django
-- Django REST Framework
-- Djoser
-- SimpleJWT
-- django-filter
-- django-cors-headers
-- SQLite no desenvolvimento
+Manualmente:
 
-### Frontend
-- React
-- Vite
-- React Router
-- Axios
-
-## Estrutura
-
-```text
-Garage-Rent/
-├── backend/
-│   ├── garage_rent/
-│   ├── spaces/
-│   ├── reservations/
-│   ├── manage.py
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   ├── package.json
-│   └── vite.config.js
-├── .env.example
-└── README.md
-```
-
-## Executando localmente
-
-### Abrir com um clique no Windows
-
-Com Python e Node.js instalados, dê dois cliques em `Abrir Garage Rent.cmd` na raiz.
-O script prepara as dependências, aplica migrações, inicia os servidores em segundo
-plano e abre `http://localhost:5173/`. Os logs ficam em `.local/` (fora do Git).
-Não feche os servidores se estiver usando os comandos manuais abaixo.
-
-Para testar sem abrir o navegador: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1 -NoBrowser`.
-
-### Recursos de busca, reserva e confiança
-
-- **Mapa e proximidade:** o anunciante seleciona uma região no mapa ou usa a
-  localização do dispositivo. As coordenadas são limitadas a duas casas decimais;
-  apenas essa região é armazenada e usada no cálculo de distância em linha reta.
-  O mapa mostra as regiões dos resultados da página atual. Anúncios antigos
-  precisam receber uma região para aparecer na busca por proximidade; continuam
-  disponíveis na busca normal. A localização do visitante só é solicitada ao
-  clicar em “Buscar perto de mim”.
-- **Anúncios:** veículos aceitos, altura máxima, dimensões e comodidades aparecem
-  nos detalhes; a busca permite filtrar veículo, cobertura, acesso 24h e preço.
-- **Reserva:** “Consultar total e disponibilidade” calcula no servidor o valor
-  por hora, diária ou bloco de 30 dias iniciado. A confirmação revalida o período
-  e o total; mudanças de preço exigem nova consulta. As datas enviadas têm fuso.
-- **Cancelamento:** o locatário pode cancelar antes do início. Depois, a interface
-  orienta combinar alterações com o proprietário. Esta versão não processa
-  pagamentos nem reembolsos.
-- **Avaliações:** após o fim do período, qualquer participante pode concluir uma
-  reserva confirmada. Só o locatário pode publicar uma avaliação de 1 a 5, uma
-  por reserva concluída. A nota média e os comentários são públicos.
-- **Verificação de e-mail:** usuários conectados podem pedir um link no aviso do
-  topo. O link expira em 24 horas; o selo confirma apenas o e-mail, não identidade.
-  No desenvolvimento, o link aparece no terminal ou em `.local/backend.log`.
-  Para entrega real, configure SMTP em `backend/.env`, como na recuperação de
-  senha. Nenhuma credencial deve ser adicionada ao Git.
-- **Celular:** menu acessível, filtros expansíveis, troca de fotos por gesto e
-  atalho fixo para a seção de reserva.
-
-O mapa usa [Leaflet](https://leafletjs.com/reference.html) e tiles do OpenStreetMap,
-com atribuição visível. O mapa base requer internet; em produção, configure um
-provedor compatível com o tráfego e com a [política de uso dos tiles](https://operations.osmfoundation.org/policies/tiles/).
-
-### Verificação das alterações
-
-No backend: `.venv\Scripts\python.exe manage.py test`.
-No frontend: `npm test` e `npm run build`.
-
-### Paleta de cores
-
-A paleta laranja está em `frontend/src/theme.css`. Para voltar ao verde, altere
-`data-theme="orange"` para `data-theme="green"` em `frontend/index.html` e ajuste
-a meta `theme-color` para `#173b32`.
-
-### 1. Backend
-
-```bash
+```powershell
 cd backend
-python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe manage.py migrate
+.venv/Scripts/python.exe manage.py runserver
 ```
 
-Windows:
+Em outro terminal:
 
-```bash
-.venv\\Scripts\\activate
-```
-
-Linux/macOS:
-
-```bash
-source .venv/bin/activate
-```
-
-Instale as dependências:
-
-```bash
-pip install -r requirements.txt
-```
-
-Crie `backend/.env` com base no `.env.example` da raiz e execute:
-
-```bash
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
-
-API: `http://localhost:8000/api/`
-Admin: `http://localhost:8000/admin/`
-
-### 2. Frontend
-
-```bash
+```powershell
 cd frontend
 npm install
-```
-
-Crie `frontend/.env`:
-
-```env
-VITE_API_URL=http://localhost:8000/api
-```
-
-Execute:
-
-```bash
 npm run dev
 ```
 
-Frontend: `http://localhost:5173/`
+Backend: Django/DRF, JWT e SQLite local. Frontend: React/Vite. Configure variáveis seguindo `.env.example` e `backend/.env.example`. Não publique credenciais.
 
-### Recuperação de senha
+## Operar o destaque pago
 
-No desenvolvimento, o link de recuperação aparece no terminal do backend após o pedido em `/esqueci-senha`. Para entregar o link por e-mail, configure `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` e `FRONTEND_URL` no `backend/.env` (exemplo em `backend/.env.example`). O link expira em 1 hora.
+1. Crie uma conta administrativa com `manage.py createsuperuser` e abra `http://localhost:8000/admin/`.
+2. Em **Promotion packages**, revise o pacote inicial e preencha instruções reais de cobrança externa (contato comercial ou meio de pagamento escolhido). A configuração inicial apenas orienta aguardar instruções; não contém uma chave Pix ou conta fictícia.
+3. O anunciante acessa **Meus anúncios → Resultados e destaque → Solicitar destaque**. O pedido registra preço, duração e instruções daquele momento. Não há checkout nem renovação automática.
+4. Em **Promotions**, informe/atualize as instruções específicas do pedido, se necessário. O anunciante as acompanha no painel. Confira o pagamento externamente e salve sua referência em `payment_reference`.
+5. Selecione o pedido e use **Confirmar pagamento externo e ativar destaque**. A ação requer referência de pagamento, anúncio ativo, não alugado e não oculto. O prazo começa na ativação; repetir a ação não reinicia o prazo.
+6. Apenas destaques vigentes recebem selo **Patrocinado** e prioridade, depois de aplicar os filtros da busca. Entre os patrocinados, vale a ordenação escolhida. A expiração é verificada na consulta, sem depender de uma tarefa agendada.
 
-## Endpoints principais
+Anúncios com histórico de destaque devem ser pausados, não excluídos pelo anunciante, para preservar o registro comercial. O anunciante pode cancelar pedidos pendentes. Cancelar/ocultar anúncios ou destaques não faz reembolso. Resolva qualquer pagamento já recebido diretamente com o cliente. Pausar, alugar ou moderar um anúncio interrompe sua exibição, mas não suspende o prazo contratado.
 
-| Método | Endpoint | Descrição |
-|---|---|---|
-| POST | `/api/auth/users/` | Cadastro |
-| POST | `/api/auth/jwt/create/` | Login |
-| POST | `/api/auth/jwt/refresh/` | Renovação do token |
-| GET | `/api/auth/users/me/` | Usuário autenticado |
-| GET | `/api/spaces/` | Listar espaços |
-| POST | `/api/spaces/` | Criar anúncio |
-| GET | `/api/spaces/{id}/` | Detalhe |
-| PATCH | `/api/spaces/{id}/` | Editar anúncio próprio |
-| DELETE | `/api/spaces/{id}/` | Excluir anúncio próprio |
-| GET | `/api/spaces/mine/` | Meus anúncios |
-| GET | `/api/spaces/favorites/` | Meus favoritos |
-| POST/DELETE | `/api/spaces/{id}/favorite/` | Favoritar/desfavoritar |
-| GET/POST | `/api/reservations/` | Minhas reservas / solicitar reserva |
-| POST | `/api/reservations/{id}/confirm/` | Confirmar (proprietário) |
-| POST | `/api/reservations/{id}/reject/` | Recusar (proprietário) |
-| POST | `/api/reservations/{id}/cancel/` | Cancelar (locatário) |
+Planos profissionais, pacotes por quantidade e cobrança recorrente ficam para uma próxima fase; não são oferecidos nesta versão.
 
-## Próximas evoluções planejadas
+## E-mails e lembretes
 
-1. Geolocalização e mapa.
-2. Calendário visual de disponibilidade.
-3. Galeria com múltiplas imagens.
-4. Pagamentos e repasse ao proprietário.
-5. Avaliações de locador e locatário.
-6. Chat seguro dentro da plataforma.
-7. Verificação de identidade e antifraude.
-8. Contrato digital e regras específicas para locações mensais.
-9. Notificações por e-mail/push.
-10. Painel administrativo de moderação e suporte.
+O painel funciona independentemente do e-mail. Para entrega real, configure SMTP (`EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`) e `FRONTEND_URL`.
 
-## Regra de privacidade importante
+O comando abaixo simula envios e não transmite mensagens:
 
-O endereço completo do espaço é armazenado no backend, mas não é exibido publicamente. Ele fica disponível ao proprietário e ao locatário quando houver uma reserva confirmada.
+```powershell
+cd backend
+.venv/Scripts/python.exe manage.py send_portal_notifications
+```
+
+Após configurar SMTP, execute com `--send` por um único agendador, por exemplo a cada 15 minutos. Esta mudança não instala um agendador de produção nem dispara e-mails reais.
+
+- Novos contatos: aviso ao proprietário e link para o painel; mensagens privadas não entram no corpo do aviso.
+- Alertas: resumo de até 20 novos anúncios por execução, respeitando os critérios, o consentimento, a verificação de e-mail e o estado ativo do alerta. O e-mail contém link para pausar/excluir o alerta.
+- Disponibilidade: lembrete semanal para anúncios sem revisão há mais de 30 dias; também aparece um aviso no painel.
+- Entregas registradas evitam reenvio normal. Use apenas um worker. Como SMTP não é transacional, uma falha depois da transmissão e antes do registro pode gerar repetição no próximo envio; não há garantia de entrega exatamente uma vez.
+
+## Moderação e privacidade
+
+Em **Listing reports**, analise denúncias e use a ação de ocultar anúncios quando necessário. O proprietário não pode remover o bloqueio da moderação. Em **Service reviews**, o administrador pode ocultar avaliações inadequadas. Nunca trate verificação de e-mail como garantia de identidade ou segurança.
+
+Telefone do anúncio é público por escolha do anunciante. E-mail e telefone fornecidos pelo interessado são visíveis somente na área do dono do anúncio (e à administração). Não use esses dados para campanhas não solicitadas.
+
+As reservas antigas permanecem no banco e na API autenticada `/api/reservations/`, apenas para leitura dos participantes. Novas reservas e ações de contratação foram desativadas. A rota antiga `/reservas` redireciona para Meus anúncios.
+
+## Verificar
+
+```powershell
+cd backend
+.venv/Scripts/python.exe manage.py test
+.venv/Scripts/python.exe manage.py makemigrations --check --dry-run
+```
+
+```powershell
+cd frontend
+npm test
+npm run build
+```
+
+Testes cobrem privacidade, permissões, duplicatas, contato, métricas, consentimento, entrega de notificações, ativação administrativa, expiração e ranking dos destaques. Não é necessário processar um pagamento real para testar.
+
+O mapa usa Leaflet e tiles OpenStreetMap. Em produção, configure um provedor adequado ao tráfego. A região armazenada permanece aproximada (duas casas decimais).

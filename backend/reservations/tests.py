@@ -25,7 +25,7 @@ class ReservationApiTests(APITestCase):
         )
         self.client.force_authenticate(self.renter)
 
-    def test_blocks_overlapping_reservation(self):
+    def test_classified_portal_rejects_new_reservations(self):
         start = timezone.now() + timedelta(days=2)
         end = start + timedelta(days=2)
         Reservation.objects.create(
@@ -42,4 +42,4 @@ class ReservationApiTests(APITestCase):
             "start_at": (start + timedelta(hours=12)).isoformat(),
             "end_at": (end + timedelta(days=1)).isoformat(),
         }, format="json")
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 405)

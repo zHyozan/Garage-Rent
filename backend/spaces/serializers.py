@@ -6,10 +6,12 @@ from .location import distance_km
 
 
 class SpaceSerializer(serializers.ModelSerializer):
+    contact_phone = serializers.CharField(max_length=24, required=False, allow_blank=True)
     latitude = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=-90, max_value=90, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=-180, max_value=180, required=False, allow_null=True)
     distance_km = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
+    is_promoted = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
     public_location = serializers.CharField(read_only=True)
     exact_address = serializers.SerializerMethodField()
@@ -31,8 +33,9 @@ class SpaceSerializer(serializers.ModelSerializer):
             "images", "images_upload", "remove_image_ids", "gallery_order",
             "is_active", "is_favorite", "is_owner", "created_at", "updated_at",
             "latitude", "longitude", "accepted_vehicles", "distance_km", "rating",
+            "contact_phone", "whatsapp_enabled", "availability_status", "availability_checked_at", "is_promoted", "moderated",
         ]
-        read_only_fields = ["owner", "created_at", "updated_at"]
+        read_only_fields = ["owner", "created_at", "updated_at", "availability_checked_at", "moderated"]
         extra_kwargs = {
             "address_line": {"write_only": True},
             "postal_code": {"write_only": True},
@@ -48,13 +51,20 @@ class SpaceSerializer(serializers.ModelSerializer):
             return round(distance_km(nearby["lat"], nearby["lng"], obj.latitude, obj.longitude), 1)
         return None
 
+    def get_is_promoted(self, obj):
+        from django.utils import timezone
+        return obj.is_active and not obj.moderated and obj.availability_status != "rented" and obj.promotions.filter(status="active", starts_at__lte=timezone.now(), ends_at__gt=timezone.now()).exists()
+
     def get_rating(self, obj):
         from django.db.models import Avg, Count
-        from reservations.models import Review
-        result = Review.objects.filter(reservation__space=obj).aggregate(average=Avg("score"), count=Count("id"))
+        result = obj.service_reviews.filter(is_visible=True).aggregate(average=Avg("score"), count=Count("id"))
         if result["average"] is not None:
             result["average"] = round(result["average"], 1)
         return result
+
+    def validate_contact_phone(self, value):
+        from .portal import phone_number
+        return phone_number(value)
 
     def validate_accepted_vehicles(self, value):
         allowed = {"motorcycle", "car", "suv", "van", "truck", "bicycle"}
@@ -96,6 +106,15 @@ class SpaceSerializer(serializers.ModelSerializer):
         for field in ("length_m", "width_m", "height_m"):
             if attrs.get(field) is not None and attrs[field] <= 0:
                 raise serializers.ValidationError({field: "A dimensão deve ser maior que zero."})
+        title = attrs.get("title", getattr(self.instance, "title", ""))
+        address = attrs.get("address_line", getattr(self.instance, "address_line", ""))
+        city = attrs.get("city", getattr(self.instance, "city", ""))
+        owner = self.context["request"].user
+        duplicates = Space.objects.filter(owner=owner, title__iexact=title.strip(), address_line__iexact=address.strip(), city__iexact=city.strip(), is_active=True)
+        if self.instance:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+        if (not self.instance or any(key in attrs for key in ("title", "address_line", "city", "is_active"))) and attrs.get("is_active", getattr(self.instance, "is_active", True)) and duplicates.exists():
+            raise serializers.ValidationError("Você já possui um anúncio ativo com este título e endereço. Edite o existente ou identifique a vaga diferente no título.")
         uploads = attrs.get("images_upload", [])
         removed = attrs.get("remove_image_ids", [])
         order = attrs.get("gallery_order")
@@ -136,6 +155,9 @@ class SpaceSerializer(serializers.ModelSerializer):
         uploads = validated_data.pop("images_upload", [])
         removed = validated_data.pop("remove_image_ids", [])
         order = validated_data.pop("gallery_order", None)
+        if "availability_status" in validated_data:
+            from django.utils import timezone
+            validated_data["availability_checked_at"] = timezone.now()
         space = super().update(instance, validated_data)
         for image in space.images.filter(id__in=removed):
             storage, name = image.image.storage, image.image.name
@@ -175,14 +197,6 @@ class SpaceSerializer(serializers.ModelSerializer):
         if request.user.id == obj.owner_id:
             return {"address_line": obj.address_line, "postal_code": obj.postal_code}
 
-        from reservations.models import Reservation
-        has_confirmed = Reservation.objects.filter(
-            space=obj,
-            renter=request.user,
-            status=Reservation.Status.CONFIRMED,
-        ).exists()
-        if has_confirmed:
-            return {"address_line": obj.address_line, "postal_code": obj.postal_code}
         return None
 
     def validate_price(self, value):

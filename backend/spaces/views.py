@@ -18,7 +18,7 @@ from rest_framework.exceptions import ValidationError
 class SpaceViewSet(viewsets.ModelViewSet):
     serializer_class = SpaceSerializer
     permission_classes = [IsOwnerOrReadOnly]
-    filterset_fields = ["space_type", "billing_period", "city", "state", "covered", "access_24h"]
+    filterset_fields = ["space_type", "billing_period", "city", "state", "covered", "access_24h", "availability_status", "owner"]
     search_fields = ["title", "description", "city", "neighborhood"]
     ordering_fields = ["price", "created_at", "updated_at"]
     ordering = ["-created_at"]
@@ -52,6 +52,12 @@ class SpaceViewSet(viewsets.ModelViewSet):
         vehicle = self.request.query_params.get("vehicle")
         if vehicle:
             queryset = queryset.filter(pk__in=[s.pk for s in queryset if vehicle in s.accepted_vehicles])
+        if self.action == "list":
+            from django.db.models import Exists, OuterRef
+            from .models import Promotion
+            active = Promotion.objects.filter(space_id=OuterRef('pk'), status='active', starts_at__lte=timezone.now(), ends_at__gt=timezone.now())
+            ordering = queryset.query.order_by or ('-created_at',)
+            queryset = queryset.annotate(sponsored=Exists(active)).order_by('-sponsored', *ordering, '-pk')
         return queryset
 
     def get_queryset(self):
@@ -62,11 +68,12 @@ class SpaceViewSet(viewsets.ModelViewSet):
         if self.action == "mine":
             qs = qs.filter(owner=user)
         elif self.action in owner_detail_actions and user.is_authenticated:
-            qs = qs.filter(Q(is_active=True) | Q(owner=user))
+            qs = qs.filter(Q(is_active=True, moderated=False) | Q(owner=user))
         else:
-            qs = qs.filter(is_active=True)
+            qs = qs.filter(is_active=True, moderated=False)
 
         if self.action == "list":
+            qs = qs.exclude(availability_status="rented")
             min_price = self.request.query_params.get("min_price")
             max_price = self.request.query_params.get("max_price")
             try:
@@ -96,6 +103,11 @@ class SpaceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.promotions.exists():
+            raise ValidationError('Este anúncio possui histórico de destaque. Pause-o para retirar a publicação e preservar o histórico comercial.')
+        instance.delete()
 
     @action(detail=True, methods=["get"])
     def reviews(self, request, pk=None):
@@ -136,7 +148,7 @@ class SpaceViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def favorites(self, request):
-        queryset = Space.objects.filter(favorites__user=request.user, is_active=True).select_related("owner").prefetch_related("images")
+        queryset = Space.objects.filter(favorites__user=request.user, is_active=True, moderated=False).select_related("owner").prefetch_related("images")
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page if page is not None else queryset, many=True)
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)

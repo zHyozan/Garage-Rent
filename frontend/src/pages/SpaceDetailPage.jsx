@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
-import AvailabilityCalendar from '../components/AvailabilityCalendar'
+import ContactPanel from '../components/ContactPanel'
+import ListingTrust from '../components/ListingTrust'
 import { useAuth } from '../context/AuthContext'
 import { apiError } from '../api/errors'
 import RegionMap from '../components/RegionMap'
-import Reviews from '../components/Reviews'
 import { vehicleLabels } from '../components/SpaceForm'
 
 const labels = { garage: 'Garagem', parking: 'Vaga', warehouse: 'Galpão', hour: 'hora', day: 'dia', month: 'mês' }
@@ -18,18 +18,13 @@ export default function SpaceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [photoIndex, setPhotoIndex] = useState(0)
-  const [reservation, setReservation] = useState({ start_at: '', end_at: '' })
-  const [quote, setQuote] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [accepted, setAccepted] = useState(false)
-  const [availabilityVersion, setAvailabilityVersion] = useState(0)
   const touchStart = useRef(null)
-  const changeDates = (value) => { setReservation(value); setQuote(null); setAccepted(false); setMessage('') }
 
   const load = async () => {
     try {
       const { data } = await api.get(`/spaces/${id}/`)
       setSpace(data)
+      if (!data.is_owner) api.post(`/portal/${id}/event/`, { kind: 'view' }).catch(() => {})
     } catch (error) {
       setMessage(apiError(error))
     } finally {
@@ -37,39 +32,15 @@ export default function SpaceDetailPage() {
     }
   }
 
-  useEffect(() => { setPhotoIndex(0); load() }, [id])
+  useEffect(() => { setPhotoIndex(0); setSpace(null); setLoading(true); setMessage(''); load() }, [id])
 
   const toggleFavorite = async () => {
     if (!user) return navigate('/entrar', { state: { from: `/espacos/${id}` } })
-    if (space.is_favorite) await api.delete(`/spaces/${id}/favorite/`)
-    else await api.post(`/spaces/${id}/favorite/`)
-    await load()
-  }
-
-  const book = async (event) => {
-    event.preventDefault()
-    setMessage('')
-    if (!user) return navigate('/entrar', { state: { from: `/espacos/${id}` } })
-    if (busy) return
-    if (new Date(reservation.end_at) <= new Date(reservation.start_at)) return setMessage('O fim deve ser posterior ao início.')
-    setBusy(true)
     try {
-      const payload = { space: Number(id), start_at: new Date(reservation.start_at).toISOString(), end_at: new Date(reservation.end_at).toISOString() }
-      if (!quote) {
-        const { data } = await api.post('/reservations/quote/', payload)
-        setQuote(data)
-      } else {
-        if (!accepted) return setMessage('Leia e aceite as condições de cancelamento.')
-        const { data } = await api.post('/reservations/', { ...payload, expected_total: quote.total_amount })
-        setMessage(`Solicitação #${data.id} enviada ao proprietário. Total: ${Number(data.total_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}. Acompanhe em Reservas.`)
-        setQuote(null); setAccepted(false); setReservation({ start_at: '', end_at: '' }); setAvailabilityVersion((v) => v + 1)
-      }
-    } catch (error) {
-      setQuote(null); setAccepted(false)
-      setMessage(apiError(error, 'Não foi possível solicitar a reserva.'))
-    } finally {
-      setBusy(false)
-    }
+      if (space.is_favorite) await api.delete(`/spaces/${id}/favorite/`)
+      else await api.post(`/spaces/${id}/favorite/`)
+      await load()
+    } catch (error) { setMessage(apiError(error)) }
   }
 
   if (loading) return <div className="page-center">Carregando...</div>
@@ -98,14 +69,15 @@ export default function SpaceDetailPage() {
           <div className="detail-title-row">
             <div>
               <span className="eyebrow">{labels[space.space_type]}</span>
-              <h1>{space.title}</h1>
+              <h1>{space.title}</h1>{space.is_promoted && <span className="sponsored-label">Patrocinado</span>}
               <p className="muted">{space.public_location}</p>
             </div>
             {!space.is_owner && <button className="button button-secondary" onClick={toggleFavorite}>{space.is_favorite ? '★ Favoritado' : '☆ Favoritar'}</button>}
           </div>
           {space.is_owner && !space.is_active && <div className="alert alert-info">Este anúncio está pausado e não aparece para outros usuários.</div>}
+          {space.is_owner && space.moderated && <div className="alert alert-error">Este anúncio foi ocultado pela moderação.</div>}
           <p className="detail-description">{space.description}</p>
-          <p>Anunciado por <strong>{space.owner.username}</strong> {space.owner.email_verified && <span className="status">E-mail verificado</span>}</p>
+          <p>Anunciado por <Link to={`/?owner=${space.owner.id}`}>{space.owner.username}</Link> {space.owner.email_verified && <span className="status">E-mail verificado</span>}</p>
           <h2>Veículos aceitos</h2><div className="feature-grid">{space.accepted_vehicles?.length ? space.accepted_vehicles.map((vehicle) => <span key={vehicle}>{vehicleLabels[vehicle]}</span>) : <p className="muted">Não informado pelo proprietário.</p>}</div>
 
           <h2>Comodidades</h2>
@@ -128,11 +100,11 @@ export default function SpaceDetailPage() {
           {space.exact_address && (
             <div className="alert alert-info"><strong>Endereço completo:</strong> {space.exact_address.address_line} {space.exact_address.postal_code}</div>
           )}
-          {space.latitude != null && <section><h2>Região aproximada</h2><RegionMap position={space} /><p className="muted">O mapa mostra apenas a região. O endereço completo é liberado após a confirmação da reserva.</p></section>}
-          <Reviews key={id} spaceId={id} />
+          {space.latitude != null && <section><h2>Região aproximada</h2><RegionMap position={space} /><p className="muted">O mapa mostra apenas a região. O proprietário compartilha o endereço completo durante a negociação.</p></section>}
+          {!space.moderated && space.is_active && <ListingTrust key={id} space={space} />}
         </section>
 
-        <aside className="booking-card" id="reservar">
+        <aside className="booking-card" id="contato">
           <div className="space-price big-price">
             <strong>{Number(space.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
             <span>/{labels[space.billing_period]}</span>
@@ -140,26 +112,15 @@ export default function SpaceDetailPage() {
           {space.is_owner ? (
             <div className="stack-form">
               <p>Este anúncio é seu.</p>
+              <Link className="button button-primary button-full" to={`/meus-anuncios/${space.id}/resultados`}>Resultados e destaque</Link>
               <Link className="button button-primary button-full" to={`/meus-anuncios/${space.id}/editar`}>Editar anúncio</Link>
               <Link className="button button-secondary button-full" to="/meus-anuncios">Meus anúncios</Link>
             </div>
-          ) : (
-            <div className="stack-form">
-            <AvailabilityCalendar key={availabilityVersion} spaceId={id} />
-            <form onSubmit={book} className="stack-form">
-              <label>Início<input required disabled={busy} type="datetime-local" value={reservation.start_at} onChange={(e) => changeDates({ ...reservation, start_at: e.target.value })} /></label>
-              <label>Fim<input required disabled={busy} type="datetime-local" min={reservation.start_at} value={reservation.end_at} onChange={(e) => changeDates({ ...reservation, end_at: e.target.value })} /></label>
-              <p className="muted">Cobrança por {labels[space.billing_period]} iniciado{space.billing_period === 'month' ? ' (blocos de 30 dias)' : ''}. Horários no fuso do seu dispositivo.</p>
-              {quote && <div className="quote-summary" role="status"><strong>Total: {Number(quote.total_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong><p>{quote.cancellation_policy}</p><small>{quote.detail}</small><label className="check"><input required type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />Li e aceito as condições de cancelamento.</label></div>}
-              <button disabled={busy || (quote && !accepted)} className="button button-primary button-full">{busy ? 'Aguarde...' : quote ? 'Confirmar solicitação' : 'Consultar total e disponibilidade'}</button>
-              <small>O proprietário precisa confirmar a solicitação.</small>
-            </form>
-            </div>
-          )}
+          ) : <ContactPanel key={id} space={space} />}
           {message && <div className="alert alert-info" role="status">{message}</div>}
         </aside>
       </div>
-      {!space.is_owner && <a className="mobile-booking button button-primary" href="#reservar">Ver disponibilidade e reservar</a>}
+      {!space.is_owner && <a className="mobile-booking button button-primary" href="#contato">Entrar em contato</a>}
     </main>
   )
 }

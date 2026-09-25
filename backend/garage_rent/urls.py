@@ -2,6 +2,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+from spaces.portal import PortalViewSet, SavedAlertViewSet
+
+portal_router = DefaultRouter()
+portal_router.register("portal", PortalViewSet, basename="portal")
+portal_router.register("alerts", SavedAlertViewSet, basename="alert")
 from .auth_views import EmailTokenObtainPairView
 from .password_reset import PasswordResetConfirmView, PasswordResetRequestView
 from .email_verification import EmailVerificationRequestView, EmailVerificationConfirmView
@@ -15,6 +21,7 @@ urlpatterns = [
     path("api/auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("api/auth/", include("djoser.urls")),
     path("api/auth/", include("djoser.urls.jwt")),
+    path("api/", include(portal_router.urls)),
     path("api/spaces/", include("spaces.urls")),
     path("api/reservations/", include("reservations.urls")),
 ]

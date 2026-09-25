@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 import SpaceCard from '../components/SpaceCard'
 import RegionMap from '../components/RegionMap'
@@ -14,6 +15,8 @@ const initialFilters = {
 }
 
 export default function HomePage({ favoritesOnly = false }) {
+  const [searchParams] = useSearchParams()
+  const owner = searchParams.get('owner')
   const [spaces, setSpaces] = useState([])
   const [filters, setFilters] = useState(initialFilters)
   const [loading, setLoading] = useState(true)
@@ -30,7 +33,7 @@ export default function HomePage({ favoritesOnly = false }) {
     setError('')
     try {
       const endpoint = favoritesOnly ? '/spaces/favorites/' : '/spaces/'
-      const params = favoritesOnly ? { page: nextPage } : { ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), page: nextPage, ...(location ? { lat: location.lat, lng: location.lng, radius } : {}) }
+      const params = favoritesOnly ? { page: nextPage } : { ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), page: nextPage, ...(owner ? { owner } : {}), ...(location ? { lat: location.lat, lng: location.lng, radius } : {}) }
       const { data } = await api.get(endpoint, { params })
       setSpaces(data.results || data)
       setPage(nextPage)
@@ -45,7 +48,7 @@ export default function HomePage({ favoritesOnly = false }) {
 
   useEffect(() => {
     loadSpaces()
-  }, [favoritesOnly])
+  }, [favoritesOnly, owner])
 
   const submit = (event) => {
     event.preventDefault()
@@ -70,25 +73,26 @@ export default function HomePage({ favoritesOnly = false }) {
           <div className="container hero-grid">
             <div>
               <span className="eyebrow">Espaço parado vira renda</span>
-              <h1>Encontre a garagem ou o galpão certo para você.</h1>
-              <p>Alugue espaços particulares com praticidade, transparência e foco exclusivo em garagens, vagas e galpões.</p>
+              <h1>Encontre seu espaço. Negocie direto com o proprietário.</h1>
+              <p>Garagens, vagas e galpões para alugar. Anúncios gratuitos e contato direto, sem comissão sobre o aluguel.</p><div className="row-actions"><a className="button button-primary" href="#buscar">Encontrar um espaço</a><Link className="button button-secondary" to="/anunciar">Anunciar grátis</Link></div>
             </div>
             <div className="hero-stat-card">
-              <strong>Garage Rent</strong>
-              <span>Um marketplace feito para espaços que os portais imobiliários tradicionais tratam como detalhe.</span>
+              <strong>Seu espaço pode render mais</strong>
+              <span>Publique gratuitamente, receba contatos e combine a locação. Quer mais visibilidade? Solicite um destaque opcional no seu painel.</span>
             </div>
           </div>
         </section>
       )}
 
-      <section className="container section">
+      <section className="container section" id="buscar">
         <div className="section-heading">
           <div>
             <span className="eyebrow">{favoritesOnly ? 'Sua seleção' : 'Espaços disponíveis'}</span>
-            <h2>{favoritesOnly ? 'Favoritos' : 'Explore oportunidades perto de você'}</h2>
+            <h2>{favoritesOnly ? 'Favoritos' : owner ? 'Espaços deste anunciante' : 'Explore oportunidades perto de você'}</h2>
           </div>
         </div>
 
+        {owner && <p><Link to="/">Ver todos os anunciantes</Link></p>}
         {!favoritesOnly && (
           <form className="filter-bar" onSubmit={submit}>
             <input aria-label="Buscar anúncio" placeholder="Buscar anúncio" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
@@ -125,6 +129,7 @@ export default function HomePage({ favoritesOnly = false }) {
           </form>
         )}
 
+        {!favoritesOnly && <div className="alert-callout"><div><strong>Quer saber quando surgir um novo espaço?</strong><p>Crie um alerta por cidade ou bairro, tipo e faixa de preço. Confira os critérios na próxima tela.</p></div><Link className="button button-secondary" to={`/alertas?${new URLSearchParams(Object.fromEntries(['location', 'space_type', 'billing_period', 'min_price', 'max_price'].filter((key) => filters[key]).map((key) => [key, filters[key]])))}`}>Criar alerta gratuito</Link></div>}
         <div className="view-controls"><button className="button button-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>Lista</button><button className="button button-secondary" aria-pressed={view === 'map'} onClick={() => setView('map')}>Mapa</button></div>
         {error && <div className="alert alert-error" role="alert">{error}</div>}
         {!loading && view === 'map' && <><RegionMap spaces={spaces} /><p className="muted">Regiões aproximadas dos anúncios desta página. O endereço completo fica protegido. {spaces.filter((s) => s.latitude == null).length} anúncio(s) desta página sem região no mapa.</p></>}
@@ -137,6 +142,7 @@ export default function HomePage({ favoritesOnly = false }) {
         )}
         <div className="pagination"><button className="button button-secondary" disabled={loading || page === 1} onClick={() => loadSpaces(page - 1)}>Anterior</button><span>Página {page}</span><button className="button button-secondary" disabled={loading || !hasNext} onClick={() => loadSpaces(page + 1)}>Próxima</button></div>
       </section>
+      {!favoritesOnly && <section className="container section how-it-works"><h2>Como funciona</h2><div className="metrics-grid"><article><h3>1. Encontre</h3><p>Compare região, preço e características do espaço.</p></article><article><h3>2. Converse</h3><p>Use o WhatsApp, telefone ou formulário para falar com o anunciante.</p></article><article><h3>3. Combine</h3><p>Confirme a disponibilidade, visite e acerte contrato e pagamento diretamente.</p></article></div><p>O Garage Rent divulga anúncios. Não intermedeia pagamentos de aluguel. Destaques são publicidade identificada como Patrocinado.</p></section>}
     </main>
   )
 }
